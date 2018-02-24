@@ -1,0 +1,8 @@
+.map
+*.o
+*.elf
+*.gba
+*.sav
+gfx/*.h
+gfx/*.o
+gfx/*.s
