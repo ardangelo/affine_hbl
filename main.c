@@ -22,7 +22,6 @@
 #include "gfx/thwomp.h"
 #include "gfx/objpal.h"
 
-
 #define SPR_COUNT	24
 
 #define MENU_CHR	128
