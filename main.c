@@ -3,9 +3,10 @@
 
 #include <tonc.h>
 
-#include "main.h"
+#include "mode7.h"
 
 #include "gfx/bc1floor.h"
+#include "gfx/bc1sky.h"
 #include "gfx/bgpal.h"
 
 /* globals */
@@ -21,10 +22,10 @@ FIXED g_sinf = 0;
 
 /* prototypes */
 
+/* overlay functions */
 void init_cross();
 void win_textbox(int bg_num, int left, int top, int right, int bottom, int blend_y);
-void init_map();
-void init_main();
+
 void input_game();
 
 /* implementations */

@@ -1,6 +1,6 @@
 #include <tonc.h>
 
-#include "main.h"
+#include "mode7.h"
 
 void m7_hbl() {
 
