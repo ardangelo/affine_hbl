@@ -33,7 +33,7 @@ gfx/bc1sky.o gfx/bc1sky.h : gfx/bc1sky.png
 	$(CC) $(ASFLAGS) -c gfx/bc1sky.s -o gfx/bc1sky.o
 # Menu borders, LZ77 compressed.
 gfx/border.o gfx/border.h : gfx/border.png
-	$(GRIT) gfx/border.png -ogfx/border -fts -gt -gB4 -gzl
+	$(GRIT) gfx/border.png -ogfx/border -fts -gt -gB4 -gzl -p!
 	$(CC) $(ASFLAGS) -c gfx/border.s -o gfx/border.o
 # Background palette, LZ77 compressed.
 gfx/bgpal.o gfx/bgpal.h : gfx/bgpal.png

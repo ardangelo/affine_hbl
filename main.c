@@ -254,6 +254,7 @@ void init_main()
 	irq_init(NULL);
 	irq_add(II_HBLANK, (fnptr)m7_hbl_floor);
 	irq_add(II_VBLANK, NULL);
+
 }
 
 void init_sprites()
@@ -302,7 +303,7 @@ void init_menu()
 {
 	int ii;
 
-	tte_init_se(0, BG_CBB(1) | BG_SBB(7), MENU_TEXT_SE0, CLR_BLUE, 0xEE, 
+	tte_init_se(0, BG_CBB(1) | BG_SBB(7), MENU_TEXT_SE0, CLR_WHITE, 0xEE, 
 		NULL, NULL);
 	tte_init_con();
 
@@ -311,7 +312,6 @@ void init_menu()
 		*pwd++ |= octup(8);
 
 	LZ77UnCompVram(borderTiles, &tile_mem[1][128]);
-	GRIT_CPY(pal_bg_bank[15], borderPal);
 
 	se_window(se_mem[7], 6, 4, 24, 11, MENU_FRAME_SE0);
 	tte_set_margins(MENU_X0+8, MENU_Y0, 184, 80);
