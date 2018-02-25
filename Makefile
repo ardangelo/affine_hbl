@@ -61,10 +61,12 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-main.o : main.c $(GFX_HEADERS)
+main.iwram.o : main.iwram.c main.h
+	$(CC) $(CFLAGS) $(IRRCH) -c main.iwram.c -o main.iwram.o
+main.o : main.c main.h $(GFX_HEADERS)
 	$(CC) $(CFLAGS) $(RARCH) -c main.c -o main.o
 
-CODE_OBJS := main.o
+CODE_OBJS := main.o main.iwram.o
 
 # link objects into an elf
 $(ROMNAME).elf : $(CODE_OBJS) $(GFX_OBJS)
