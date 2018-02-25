@@ -61,16 +61,10 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-id_sort_shell.o : id_sort_shell.s
-	$(CC) $(ASFLAGS) $(RARCH) -c id_sort_shell.s -o id_sort_shell.o
-mode7.o : mode7.c mode7.h
-	$(CC) $(CFLAGS) $(RARCH) -c mode7.c -o mode7.o
-mode7.iwram.o : mode7.iwram.c mode7.h
-	$(CC) $(CFLAGS) $(IARCH) -c mode7.iwram.c -o mode7.iwram.o
 main.o : main.c $(GFX_HEADERS)
 	$(CC) $(CFLAGS) $(RARCH) -c main.c -o main.o
 
-CODE_OBJS := main.o mode7.o mode7.iwram.o id_sort_shell.o
+CODE_OBJS := main.o
 
 # link objects into an elf
 $(ROMNAME).elf : $(CODE_OBJS) $(GFX_OBJS)
