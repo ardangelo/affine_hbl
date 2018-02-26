@@ -15,6 +15,10 @@
 #define FLOOR_SBB 24
 #define M7_PRIO 3
 
+/* game globals */
+typedef enum { CTRL_NORMAL, CTRL_ZOOMED } control_state_t;
+control_state_t g_control_state;
+
 /* obj globals */
 OBJ_ATTR *obj_cross = &oam_mem[0];
 
@@ -24,10 +28,13 @@ BG_AFFINE m7_aff_arrs[SCREEN_HEIGHT+1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x0D100, 0x1900, 0x38800 },
-	0x0A00,
-	0x2600,
-	{ 256, 0, 0 }, {0, 256, 0}, {0, 0, 256}
+	{ 0x0D100, 0x1900, 0x38800 }, /* pos */
+	CAM_NORMAL, /* camera state */
+	0x0a00, /* theta */
+	0x2600, /* phi */
+	{256, 0, 0}, /* u */
+	{0, 256, 0}, /* v */
+	{0, 0, 256}  /* w */
 };
 
 /* prototypes */
@@ -80,16 +87,56 @@ void init_cross() {
 
 void input_game() {
 	const FIXED VEL_H = 0x200;
-	const VEL_Y = 0x80;
-	const OMEGA = 0x140;
+	const FIXED VEL_Y = 0x80;
+	const FIXED OMEGA = 0x140;
 
 	VECTOR dir = {0, 0, 0};
 
 	key_poll();
+
+	switch (g_control_state) {
+		case CTRL_NORMAL:
+		/* strafe */
+		dir.x = VEL_H * key_tri_horz();
+		/* back/forward */
+		dir.z = VEL_H * key_tri_vert();
+
+		/* scope in */
+		if (key_hit(KEY_R)) {
+			g_control_state = CTRL_ZOOMED;
+			m7_level.camera->state = CAM_ZOOMIN;
+		}
+		break;
+
+		case CTRL_ZOOMED:
+		m7_level.camera->phi += OMEGA*key_tri_horz(), /* look left/right */
+		m7_level.camera->theta += OMEGA*key_tri_vert(); /* look up.down */
+
+		/* scope out */
+		if (key_released(KEY_R)) {
+			g_control_state = CTRL_NORMAL;
+			m7_level.camera->state = CAM_ZOOMOUT;
+		}
+		break;
+	}
+
+	/* don't sink through the ground */
+	if(m7_level.camera->pos.y < (2 << 8)) {
+		m7_level.camera->pos.y = 2 << 8;
+	}
+
+	/* update camera rotation */
+	m7_rotate(m7_level.camera, m7_level.camera->phi, m7_level.camera->theta);
+
+	/* update camera position */
+	m7_translate(m7_level.camera, &dir);
 }
 
 int main() {
 	init_map();
+
+	/* controls */
+	g_control_state = CTRL_NORMAL;
 
 	/* hud */
 	init_cross();

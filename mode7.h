@@ -17,12 +17,12 @@
 #define M7_FAR_BG   768  /* far plane for floor */
 
 /* mode 7 types */
-typedef struct _m7_obj_t {
-	VECTOR world_pos;
-} m7_obj_t;
-
 typedef struct _m7_cam_t {
 	VECTOR pos;
+
+	enum {
+		CAM_NORMAL, CAM_ZOOMIN, CAM_ZOOMED, CAM_ZOOMOUT
+	} state;
 	int theta; /* polar angle */
 	int phi; /* azimuth angle */
 	VECTOR u; /* local x-axis */
@@ -32,7 +32,7 @@ typedef struct _m7_cam_t {
 
 typedef struct _m7_level_t {
 	m7_cam_t *camera;
-	BG_AFFINE *aff_arr; /* affine parameter array */
+	BG_AFFINE *bgaff; /* affine parameter array */
 	int horizon; /* horizon scanline */
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */

@@ -62,9 +62,9 @@ GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
 mode7.iwram.o : mode7.iwram.c mode7.h
-	$(CC) $(CFLAGS) $(IRRCH) -c mode7.iwram.c -o mode7.iwram.o
+	$(CC) $(CFLAGS) $(IARCH) -c mode7.iwram.c -o mode7.iwram.o
 mode7.o : mode7.c mode7.h
-	$(CC) $(CFLAGS) $(IRRCH) -c mode7.c -o mode7.o
+	$(CC) $(CFLAGS) $(RARCH) -c mode7.c -o mode7.o
 main.o : main.c $(GFX_HEADERS)
 	$(CC) $(CFLAGS) $(RARCH) -c main.c -o main.o
 
