@@ -20,6 +20,11 @@ typedef enum { CTRL_NORMAL, CTRL_ZOOMED } control_state_t;
 control_state_t g_control_state;
 
 /* obj globals */
+POINT pt_crosshair;
+#define CROSS_HEIGHT 8
+#define CROSS_SCROLL_WIDTH_X 24
+#define CROSS_WIDTH 8
+#define CROSS_SCROLL_WIDTH_Y 24
 OBJ_ATTR *obj_cross = &oam_mem[0];
 
 /* m7 globals */
@@ -30,8 +35,8 @@ m7_level_t m7_level;
 static const m7_cam_t m7_cam_default = {
 	{ 0x0D100, 0x1900, 0x38800 }, /* pos */
 	CAM_NORMAL, /* camera state */
-	0x0a00, /* theta */
-	0x2600, /* phi */
+	0x0, /* theta */
+	0x0, /* phi */
 	1, /* focal factor */
 	{256, 0, 0}, /* u */
 	{0, 256, 0}, /* v */
@@ -42,9 +47,10 @@ static const m7_cam_t m7_cam_default = {
 
 void init_main();
 void init_cross();
-void win_textbox(int bg_num, int left, int top, int right, int bottom, int blend_y);
 
 void input_game();
+void apply_camera_effects();
+void camera_update();
 
 /* implementations */
 
@@ -84,84 +90,121 @@ void init_cross() {
 	pal_obj_mem[0x02] = pal_obj_mem[0x11] = CLR_BLACK;
 
 	obj_cross->attr2 = 0x0001;
+
+	obj_hide(obj_cross);
 }
 
-void input_game() {
+void input_game(VECTOR *dir) {
 	const FIXED VEL_H = 0x200;
 	const FIXED VEL_Y = 0x80;
-	const FIXED OMEGA = 0x140;
-
-	VECTOR dir = {0, 0, 0};
+	const FIXED OMEGA = 0x40;
+	u8 aim_speed_x = 3;
+	u8 aim_speed_y = 3;
 
 	key_poll();
 
 	switch (g_control_state) {
 		case CTRL_NORMAL:
 		/* strafe */
-		dir.x = VEL_H * key_tri_horz();
+		dir->x = VEL_H * key_tri_horz();
 		/* back/forward */
-		dir.z = VEL_H * key_tri_vert();
+		dir->z = VEL_H * key_tri_vert();
 
 		/* scope in */
 		if (key_hit(KEY_R)) {
 			g_control_state = CTRL_ZOOMED;
 			m7_level.camera->state = CAM_ZOOMIN;
+
+			/* set up crosshair */
+			pt_crosshair.x = SCREEN_WIDTH / 2 - 4;
+			pt_crosshair.y = SCREEN_HEIGHT / 2 - 4;
+			obj_unhide(obj_cross, 0);
 		}
 		break;
 
 		case CTRL_ZOOMED:
-		m7_level.camera->phi += OMEGA*key_tri_horz(), /* look left/right */
-		m7_level.camera->theta += OMEGA*key_tri_vert(); /* look up.down */
+		/* adjust the crosshair */
+		pt_crosshair.x += aim_speed_x * key_tri_horz(); /* move crosshair left/right */
+		pt_crosshair.x = CLAMP(pt_crosshair.x,
+			CROSS_SCROLL_WIDTH_X,
+			SCREEN_WIDTH - (CROSS_WIDTH / 2) - CROSS_SCROLL_WIDTH_X);
+		pt_crosshair.y += aim_speed_y * key_tri_vert(); /* move crosshair up.down */
+		pt_crosshair.y = CLAMP(pt_crosshair.y,
+			CROSS_SCROLL_WIDTH_Y,
+			SCREEN_HEIGHT - (CROSS_HEIGHT / 2) - CROSS_SCROLL_WIDTH_Y);
+		/* rotate camera to track crosshair */
+		m7_level.camera->phi += OMEGA * key_tri_horz();
+		m7_level.camera->theta += OMEGA * key_tri_vert();
 
 		/* scope out */
 		if (key_released(KEY_R)) {
 			g_control_state = CTRL_NORMAL;
 			m7_level.camera->state = CAM_ZOOMOUT;
+
+			obj_hide(obj_cross);
 		}
 		break;
 	}
+}
 
-	/* camera effects */
+#define ZOOM_FRAME_CT 8
+#define ZOOM_FOCAL_MULT 2
+static const int zoom_anim[ZOOM_FRAME_CT] = {
+	0x40, 0x40, 0x38, 0x30, 0x20, 0x10, 0x10, 0x08
+};
+static const int sum_anim = (0x40 + 0x40 + 0x38 + 0x30 + 0x20 + 0x10 + 0x10 + 0x08);
+void apply_camera_effects(VECTOR *dir) {
 	static u8 zoom_frame = 0;
-	static const int zoom_anim[] = {
-		0x40, 0x40, 0x38, 0x30, 0x20, 0x10, 0x10, 0x08
-	};
-	switch (m7_level.camera->state) {
-		case CAM_NORMAL:
-		break;
+	static int orig_phi = 0, orig_theta = 0;
 
+	switch (m7_level.camera->state) {
 		case CAM_ZOOMIN:
+		if (zoom_frame == 0) {
+			/* save phi, theta */
+			orig_phi = m7_level.camera->phi;
+			orig_theta = m7_level.camera->theta;
+		} else if (zoom_frame == (ZOOM_FRAME_CT - 1)) {
+			m7_level.camera->state = CAM_ZOOMED;
+			break;
+		}
+
 		zoom_frame++;
 
-		dir.z -= zoom_anim[zoom_frame];
-		m7_level.camera->focal_offs += zoom_anim[zoom_frame] >> 2;
-
-		if (zoom_frame == 7) {
-			m7_level.camera->state = CAM_ZOOMED;
-		}
-		break;
-
-		case CAM_ZOOMED:
+		dir->z -= zoom_anim[zoom_frame];
+		m7_level.camera->focal_offs += zoom_anim[zoom_frame] >> ZOOM_FOCAL_MULT;
 		break;
 
 		case CAM_ZOOMOUT:
 		zoom_frame--;
 
-		dir.z += zoom_anim[zoom_frame];
-		m7_level.camera->focal_offs -= zoom_anim[zoom_frame] >> 2;
+		/* apply zoom / rotate effects based on frame */
+		dir->z += zoom_anim[zoom_frame];
+		m7_level.camera->focal_offs -= zoom_anim[zoom_frame] >> ZOOM_FOCAL_MULT;
+		m7_level.camera->phi -= (m7_level.camera->phi - orig_phi) >> 3;
+		m7_level.camera->theta -= (m7_level.camera->theta - orig_theta) >> 3;
 
 		if (zoom_frame == 0) {
+			/* reset back to unzoomed */
 			m7_level.camera->state = CAM_NORMAL;
 			m7_level.camera->focal_offs = 0;
+
+			/* restore phi, theta */
+			m7_level.camera->phi = orig_phi;
+			m7_level.camera->theta = orig_theta;
 		}
 		break;
-	}
 
+		default:
+		break;
+	}
+}
+
+void camera_update(VECTOR *dir) {
 	/* update camera rotation */
 	m7_rotate(m7_level.camera, m7_level.camera->phi, m7_level.camera->theta);
 
 	/* update camera position */
-	m7_translate(m7_level.camera, &dir);
+	m7_translate(m7_level.camera, dir);
 
 	/* don't sink through the ground */
 	if(m7_level.camera->pos.y < (2 << 8)) {
@@ -185,10 +228,15 @@ int main() {
 
 	while(1) {
 		VBlankIntrWait();
-		input_game();
+
+		/* update camera based on input */
+		VECTOR dir = {0, 0, 0};
+		input_game(&dir);
+		apply_camera_effects(&dir);
+		camera_update(&dir);
 
 		/* update cross position  */
-		obj_set_pos(obj_cross, 0, 0);
+		obj_set_pos(obj_cross, pt_crosshair.x, pt_crosshair.y);
 
 		/* update horizon */
 		m7_prep_horizon(&m7_level);
