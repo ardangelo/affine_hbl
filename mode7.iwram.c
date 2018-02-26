@@ -56,7 +56,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	/* scale and scaled (co)sine(phi) */
 	FIXED lam, lcf, lsf;
 	for(int i = start_line; i < SCREEN_HEIGHT; i++) {
-		yb = (i - M7_TOP) * ct + (M7_D * st);
+		yb = (i - M7_TOP) * ct + ((m7_level.camera->focal_offs + M7_D) * st);
 		lam = DivSafe(yc << 12 , yb);
 
 		lcf = (lam * cf) >> 8;
@@ -66,7 +66,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bga->pc = lsf >> 4;
 
 		/* lambda·Rx·b */
-		zb = (i - M7_TOP) * st - (M7_D * ct);
+		zb = (i - M7_TOP) * st - ((m7_level.camera->focal_offs + M7_D) * ct);
 		bga->dx = xc + (lcf >> 4) * M7_LEFT - ((lsf * zb) >> 12);
 		bga->dy = zc + (lsf >> 4) * M7_LEFT + ((lcf * zb) >> 12);
 

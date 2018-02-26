@@ -32,6 +32,7 @@ static const m7_cam_t m7_cam_default = {
 	CAM_NORMAL, /* camera state */
 	0x0a00, /* theta */
 	0x2600, /* phi */
+	1, /* focal factor */
 	{256, 0, 0}, /* u */
 	{0, 256, 0}, /* v */
 	{0, 0, 256}  /* w */
@@ -120,9 +121,40 @@ void input_game() {
 		break;
 	}
 
-	/* don't sink through the ground */
-	if(m7_level.camera->pos.y < (2 << 8)) {
-		m7_level.camera->pos.y = 2 << 8;
+	/* camera effects */
+	static u8 zoom_frame = 0;
+	static const int zoom_anim[] = {
+		0x40, 0x40, 0x38, 0x30, 0x20, 0x10, 0x10, 0x08
+	};
+	switch (m7_level.camera->state) {
+		case CAM_NORMAL:
+		break;
+
+		case CAM_ZOOMIN:
+		zoom_frame++;
+
+		dir.z -= zoom_anim[zoom_frame];
+		m7_level.camera->focal_offs += zoom_anim[zoom_frame] >> 2;
+
+		if (zoom_frame == 7) {
+			m7_level.camera->state = CAM_ZOOMED;
+		}
+		break;
+
+		case CAM_ZOOMED:
+		break;
+
+		case CAM_ZOOMOUT:
+		zoom_frame--;
+
+		dir.z += zoom_anim[zoom_frame];
+		m7_level.camera->focal_offs -= zoom_anim[zoom_frame] >> 2;
+
+		if (zoom_frame == 0) {
+			m7_level.camera->state = CAM_NORMAL;
+			m7_level.camera->focal_offs = 0;
+		}
+		break;
 	}
 
 	/* update camera rotation */
@@ -130,6 +162,11 @@ void input_game() {
 
 	/* update camera position */
 	m7_translate(m7_level.camera, &dir);
+
+	/* don't sink through the ground */
+	if(m7_level.camera->pos.y < (2 << 8)) {
+		m7_level.camera->pos.y = 2 << 8;
+	}
 }
 
 int main() {

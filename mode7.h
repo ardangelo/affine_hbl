@@ -25,6 +25,7 @@ typedef struct _m7_cam_t {
 	} state;
 	int theta; /* polar angle */
 	int phi; /* azimuth angle */
+	int focal_offs; /* focal length addition */
 	VECTOR u; /* local x-axis */
 	VECTOR v; /* local y-axis */
 	VECTOR w; /* local z-axis */
