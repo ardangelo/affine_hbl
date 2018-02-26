@@ -9,26 +9,61 @@
 #include "gfx/bc1sky.h"
 #include "gfx/bgpal.h"
 
-/* globals */
+/* block mappings */
+#define M7_CBB 0
+#define SKY_SBB 22
+#define FLOOR_SBB 24
+#define M7_PRIO 3
 
+/* obj globals */
 OBJ_ATTR *obj_cross = &oam_mem[0];
 
-static const VECTOR cam_pos_default= { 256<<8, 32<<8, 256<<8 };
-VECTOR cam_pos;
-u16 cam_phi = 0;
+/* m7 globals */
+m7_cam_t m7_cam;
+BG_AFFINE m7_aff_arrs[SCREEN_HEIGHT+1];
+m7_level_t m7_level;
 
-FIXED g_cosf = 1 << 8;
-FIXED g_sinf = 0;
+static const m7_cam_t m7_cam_default = {
+	{ 0x0D100, 0x1900, 0x38800 },
+	0x0A00,
+	0x2600,
+	{ 256, 0, 0 }, {0, 256, 0}, {0, 0, 256}
+};
 
 /* prototypes */
 
-/* overlay functions */
+void init_main();
 void init_cross();
 void win_textbox(int bg_num, int left, int top, int right, int bottom, int blend_y);
 
 void input_game();
 
 /* implementations */
+
+void init_map() {
+	/* init mode 7 */
+	m7_init(&m7_level, &m7_cam, m7_aff_arrs,
+		BG_CBB(M7_CBB) | BG_SBB(SKY_SBB) | BG_REG_64x32 | BG_PRIO(M7_PRIO),
+		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
+	*(m7_level.camera) = m7_cam_default;
+
+	/* extract main bg */
+	LZ77UnCompVram(bgPal, pal_bg_mem);
+	LZ77UnCompVram(bc1floorTiles, tile_mem[M7_CBB]);
+	LZ77UnCompVram(bc1floorMap, se_mem[FLOOR_SBB]);
+
+	/* setup orange fade */
+	REG_BLDCNT = BLD_BUILD(BLD_BG2, BLD_BACKDROP, 1);
+	pal_bg_mem[0] = CLR_ORANGE;
+
+	/* extract sky bg */
+	LZ77UnCompVram(bc1skyTiles, &tile_mem[M7_CBB][128]);
+	LZ77UnCompVram(bc1skyMap, se_mem[SKY_SBB]);
+
+	// Registers
+	REG_DISPCNT = DCNT_MODE1 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
+}
+
 
 void init_cross() {
 	TILE cross = {{
@@ -43,81 +78,21 @@ void init_cross() {
 	obj_cross->attr2 = 0x0001;
 }
 
-void win_textbox(int bg_num, int left, int top, int right, int bottom, int blend_y) {
-	REG_WIN0H = (left << 8) | right;
-	REG_WIN0V = (top  << 8) | bottom;
-
-	REG_WIN0CNT = WIN_ALL | WIN_BLD;
-	REG_WINOUTCNT = WIN_ALL;
-
-	REG_BLDCNT = (BLD_ALL & ~BIT(bg_num)) | BLD_BLACK;
-	REG_BLDY = blend_y;
-
-	REG_DISPCNT |= DCNT_WIN0;
-
-	tte_set_margins(left, top, right, bottom);
-}
-
-void init_map() {
-	// Setup main bg
-	LZ77UnCompVram(bgPal, pal_bg_mem);
-	LZ77UnCompVram(bc1floorTiles, tile_mem[0]);
-	LZ77UnCompVram(bc1floorMap, se_mem[8]);
-
-	// Registers
-	REG_BG2CNT = BG_CBB(0) | BG_SBB(8) | BG_AFF_128x128;
-}
-
 void input_game() {
-	const FIXED speed = 2;
-	const FIXED DY = 64;
-	VECTOR dir;
+	const FIXED VEL_H = 0x200;
+	const VEL_Y = 0x80;
+	const OMEGA = 0x140;
+
+	VECTOR dir = {0, 0, 0};
 
 	key_poll();
-
-	/* left/right : strafe */
-	dir.x = speed * key_tri_horz();
-	/* B/A : rise/sink */
-	dir.y = DY * key_tri_fire();
-	/* up/down : forward/back */
-	dir.z = speed * key_tri_vert();
-
-	/* update camera position */
-	cam_pos.x += (dir.x * g_cosf) - (dir.z * g_sinf);
-	cam_pos.y += dir.y;
-	cam_pos.z += (dir.x * g_sinf) + (dir.z * g_cosf);
-
-	/* keep above ground */
-	if (cam_pos.y < 0) { cam_pos.y = 0; }
-
-	/* L/R : rotate */
-	cam_phi += 256 * key_tri_shoulder();
-
-	/* start : reset */
-	if (key_hit(KEY_START)) {
-		cam_pos = cam_pos_default;
-		cam_phi = 0;
-	}
-
-	/* update cos / sin globals for isr */
-	g_cosf = lu_cos(cam_phi) >> 4;
-	g_sinf = lu_sin(cam_phi) >> 4;
 }
 
 int main() {
 	init_map();
+
+	/* hud */
 	init_cross();
-
-	/* registers */
-	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ;
-
-	/* hud system */
-	tte_init_chr4c_b4_default(0, BG_CBB(2)|BG_SBB(28));
-	tte_init_con();
-	win_textbox(0, 8, 120, 232, 156, 8);
-
-	/* camera */
-	cam_pos = cam_pos_default;
 
 	/* irqs */
 	irq_init(NULL);
@@ -131,9 +106,17 @@ int main() {
 		/* update cross position  */
 		obj_set_pos(obj_cross, 0, 0);
 
-		/* update hud */
-		tte_printf("#{es;P}cam\t: (%d, %d, %d) phi %d\n",
-			cam_pos.x, cam_pos.y, cam_pos.z, cam_phi);
+		/* update horizon */
+		m7_prep_horizon(&m7_level);
+		if (m7_level.horizon > 0) {
+			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
+			REG_BG2CNT = m7_level.bgcnt_sky;
+			REG_BLDALPHA = 16;
+		}
+		m7_update_sky(&m7_level);
+
+		/* update affine matrices */
+		m7_prep_affines(&m7_level);
 	}
 
 	return 0;

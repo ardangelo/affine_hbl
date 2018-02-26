@@ -22,7 +22,7 @@ typedef struct _m7_obj_t {
 } m7_obj_t;
 
 typedef struct _m7_cam_t {
-	m7_obj_t m7_obj;
+	VECTOR pos;
 	int theta; /* polar angle */
 	int phi; /* azimuth angle */
 	VECTOR u; /* local x-axis */
@@ -40,11 +40,9 @@ typedef struct _m7_level_t {
 
 /* accessible both from main and iwram */
 extern m7_level_t m7_level;
-extern VECTOR cam_pos;
-extern u16 g_cosf, g_sinf;
 
 /* level functions */
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bg_aff[], u16 skycnt, u16 floorcnt);
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE *aff_arr, u16 skycnt, u16 floorcnt);
 void m7_prep_horizon(m7_level_t *level);
 void m7_update_sky(const m7_level_t *level);
 
@@ -53,7 +51,7 @@ void m7_rotate(m7_cam_t *cam, int theta, int phi);
 void m7_translate(m7_cam_t *cam, const VECTOR *dir);
 
 /* iwram code */
-IWRAM_CODE void m7_pref_affines(m7_level_t *level);
+IWRAM_CODE void m7_prep_affines(m7_level_t *level);
 IWRAM_CODE void m7_hbl();
 
 #endif

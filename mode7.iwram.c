@@ -2,27 +2,81 @@
 
 #include "mode7.h"
 
-void m7_hbl() {
+IWRAM_CODE void m7_hbl() {
+	int vc = REG_VCOUNT;
+	int horz = m7_level.horizon;
 
-	FIXED lam = cam_pos.y * lu_div(REG_VCOUNT) >> 12;
-	FIXED lcf = lam * g_cosf >> 8;
-	FIXED lsf = lam * g_sinf >> 8;
+	if (!IN_RANGE(vc, horz, SCREEN_HEIGHT)) {
+		return;
+	}
 
-	/* rotations */
-	REG_BG2PA = lcf >> 4;
-	REG_BG2PC = lsf >> 4;
+	if (vc == horz) {
+		BFN_SET(REG_DISPCNT, DCNT_MODE1, DCNT_MODE);
+		REG_BG2CNT = m7_level.bgcnt_floor;
+	}
+	
+	BG_AFFINE *bga = &m7_level.aff_arr[vc + 1];
+	REG_BG_AFFINE[2] = *bga;
 
-	/* offsets */
-	FIXED lxr, lyr;
+	/* from tonc:
+	   A distance fogging with high marks for hack-value
+	   Remember that we used pb to store the scale in, 
+	   so the blend is basically lambda/64  = distance * 2
+	   */
+	u32 ey = (bga->pb * 6) >> 12;
+	if (ey>16) {
+		ey = 16;
+	}
 
-	/* horizontal */
-	lxr = 120 * (lcf >> 4);
-	lyr = (M7_D * lsf) >> 4;
-	REG_BG2X = cam_pos.x - lxr + lyr;
-
-	/* vertical */
-	lxr = 120 * (lsf >> 4);
-	lyr = (M7_D * lcf) >> 4;
-	REG_BG2Y = cam_pos.z - lxr - lyr;
+	REG_BLDALPHA = BLDA_BUILD(16 - ey, ey);
 }
 
+IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
+	if (level->horizon >= SCREEN_HEIGHT) {
+		return;
+	}
+
+	int start_line = (level->horizon >= 0) ? level->horizon : 0;
+
+	m7_cam_t *cam = level->camera;
+	FIXED xc = cam->pos.x;
+	FIXED yc = cam->pos.y;
+	FIXED zc =cam->pos.z;
+
+	BG_AFFINE *bga = &level->aff_arr[start_line];
+
+	/* sines and cosines */
+	FIXED cf, sf, ct, st;
+	cf = cam->u.x;
+	sf = cam->u.z;
+	ct = cam->v.y;
+	st = cam->w.y;
+
+	for (int i = start_line; i < SCREEN_HEIGHT; i++) {
+		/*  scale and scaled (co)sine(phi) */
+		FIXED lam, lcf, lsf;
+		/* b'  = Rx(theta) * (L, ys, -D) */
+		FIXED yb, zb;
+
+		yb = (i - M7_TOP) * ct + (M7_D * st);
+		lam = DivSafe(yc << 12, yb);
+
+		lcf = (lam * cf) >> 8;
+		lsf = (lam * sf) >> 8;
+
+		bga->pa = lcf >> 4;
+		bga->pc = lsf >> 4;
+
+		/* lambda·Rx·b */
+		zb = (i - M7_TOP) *st - (M7_D * ct);
+		bga->dx = xc + (lcf >> 4) * M7_LEFT - ((lsf * zb) >> 12);
+		bga->dy = zc + (lsf>>4)*M7_LEFT + (lcf*zb>>12);
+
+		/* from tonc:
+		   hack that I need for fog. pb and pd are unused anyway
+		   */
+		bga->pb = lam;
+		bga++;
+	}
+	level->aff_arr[SCREEN_HEIGHT] = level->aff_arr[0];
+}
