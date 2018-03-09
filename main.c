@@ -33,7 +33,7 @@ BG_AFFINE m7_aff_arrs[SCREEN_HEIGHT+1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x0D100, 0x1900, 0x38800 }, /* pos */
+	{ 0x000, 0x1900, 0x00 }, /* pos */
 	CAM_NORMAL, /* camera state */
 	0x0, /* theta */
 	0x0, /* phi */
@@ -55,6 +55,13 @@ void camera_update();
 /* implementations */
 
 void init_map() {
+	/* layout level */
+	m7_level.level0 = 0;
+	m7_level.level1 = 128;
+	m7_level.end0 = 256;
+	m7_level.start1 = 512;
+	m7_level.end1 = 1024;
+
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs,
 		BG_CBB(M7_CBB) | BG_SBB(SKY_SBB) | BG_REG_64x32 | BG_PRIO(M7_PRIO),
@@ -98,8 +105,8 @@ void input_game(VECTOR *dir) {
 	const FIXED VEL_H = 0x200;
 	const FIXED VEL_Y = 0x80;
 	const FIXED OMEGA = 0x40;
-	u8 aim_speed_x = 3;
-	u8 aim_speed_y = 3;
+	int aim_speed_x = 3;
+	int aim_speed_y = 3;
 
 	key_poll();
 

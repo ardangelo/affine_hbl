@@ -39,11 +39,11 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	int start_line = (level->horizon >= 0) ? level->horizon : 0;
 
 	m7_cam_t *cam = level->camera;
-	FIXED xc = cam->pos.x;
-	FIXED yc = cam->pos.y;
-	FIXED zc =cam->pos.z;
+	FIXED a_x = cam->pos.x;
+	FIXED a_y = cam->pos.y;
+	FIXED a_z = cam->pos.z;
 
-	BG_AFFINE *bga = &level->bgaff[start_line];
+	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 
 	/* sines and cosines */
 	FIXED cf = cam->u.x;
@@ -52,29 +52,27 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED st = cam->w.y;
 
 	/* b'  = Rx(theta) *  (L, ys, -D) */
-	FIXED yb, zb;
 	/* scale and scaled (co)sine(phi) */
-	FIXED lam, lcf, lsf;
 	for(int i = start_line; i < SCREEN_HEIGHT; i++) {
-		yb = (i - M7_TOP) * ct + ((m7_level.camera->focal_offs + M7_D) * st);
-		lam = DivSafe(yc << 12 , yb);
+		FIXED yb = ((i - M7_TOP) * ct) + ((m7_level.camera->focal_offs + M7_D) * st);
+		FIXED lambda = DivSafe(a_y << 12, yb);
 
-		lcf = (lam * cf) >> 8;
-		lsf = (lam * sf) >> 8;
+		FIXED lcf = (lambda * cf) >> 8;
+		FIXED lsf = (lambda * sf) >> 8;
 
-		bga->pa = lcf >> 4;
-		bga->pc = lsf >> 4;
+		bg_aff_ptr->pa = lcf >> 4;
+		bg_aff_ptr->pc = lsf >> 4;
 
 		/* lambda·Rx·b */
-		zb = (i - M7_TOP) * st - ((m7_level.camera->focal_offs + M7_D) * ct);
-		bga->dx = xc + (lcf >> 4) * M7_LEFT - ((lsf * zb) >> 12);
-		bga->dy = zc + (lsf >> 4) * M7_LEFT + ((lcf * zb) >> 12);
+		FIXED zb = ((i - M7_TOP) * st) - ((m7_level.camera->focal_offs + M7_D) * ct);
+		bg_aff_ptr->dx = a_x + (lcf >> 4) * M7_LEFT - ((lsf * zb) >> 12);
+		bg_aff_ptr->dy = a_z + (lsf >> 4) * M7_LEFT + ((lcf * zb) >> 12);
 
 		/* from tonc:
 		   hack that I need for fog. pb and pd are unused anyway
 		   */
-		bga->pb = lam;
-		bga++;
+		bg_aff_ptr->pb = lambda;
+		bg_aff_ptr++;
 	}
 	level->bgaff[SCREEN_HEIGHT] = level->bgaff[0];
 }
