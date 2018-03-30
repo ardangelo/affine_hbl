@@ -55,30 +55,25 @@ void apply_camera_effects();
 void camera_update();
 
 /* implementations */
-static FIXED heightmap_input, heightmap_output;
-FIXED level_heightmap(FIXED z) {
+FIXED level_heightmap(FIXED z) { // 0f -> 8f
 	static const FIXED depth  = 0x400; // 0f
 
-	static const FIXED level0 = 0x000 << 12; // 12f
-	static const FIXED end0   = 0x100; // 0f
-	static const FIXED start1 = 0x200; // 0f
-	static const FIXED level1 = 0x001 << 12; // 12f
+	static const FIXED level0 = 0x000 << 8; // 8f
+	static const FIXED end0   = 0x032; // 0f
+	static const FIXED start1 = 0x064; // 0f
+	static const FIXED level1 = 0x001 << 8; // 8f
+	static const FIXED slope = (level1 - level0) / (start1 - end0); // 8f / 0f = 8f
 
-	heightmap_input = z;
-	heightmap_output = (heightmap_input > (depth / 2)) ? level1 : level0;
-	return heightmap_output;
-
+	/* basic slope */
 	FIXED y = 0;
-	if (z > end0) {
+	if (z < end0) {
 		y = level0;
-	} else if (z < start1) {
+	} else if (z > start1) {
 		y = level1;
 	} else {
-		FIXED slope = (level1 - level0) / (end0 - start1); // 12f
-		y = slope * (z + end0); // 12f
+		y = slope * (z - end0); // 8f * 0f = 8f
 	}
 
-	heightmap_output = y;
 	return y;
 }
 
@@ -123,7 +118,9 @@ void init_cross() {
 
 	obj_cross->attr2 = 0x0001;
 
+#ifdef NO
 	obj_hide(obj_cross);
+#endif
 }
 
 void input_game(VECTOR *dir) {
@@ -137,6 +134,15 @@ void input_game(VECTOR *dir) {
 
 	switch (g_control_state) {
 		case CTRL_NORMAL:
+
+		/* pitch */
+		m7_level.camera->theta += OMEGA * key_tri_vert();
+
+		/* move crosshair up.down */
+		pt_crosshair.y += aim_speed_y * key_tri_vert();
+		pt_crosshair.y = CLAMP(pt_crosshair.y, 0, SCREEN_HEIGHT);
+
+#ifdef NO
 		/* strafe */
 		dir->x = VEL_H * key_tri_horz();
 		/* back/forward */
@@ -152,6 +158,7 @@ void input_game(VECTOR *dir) {
 			pt_crosshair.y = SCREEN_HEIGHT / 2 - 4;
 			obj_unhide(obj_cross, 0);
 		}
+#endif
 		break;
 
 		case CTRL_ZOOMED:
@@ -271,7 +278,7 @@ int main() {
 		camera_update(&dir);
 
 		/* update cross position  */
-		obj_set_pos(obj_cross, pt_crosshair.x, pt_crosshair.y);
+		obj_set_pos(obj_cross, pt_crosshair.x - 4, pt_crosshair.y - 4);
 
 		/* update horizon */
 		m7_prep_horizon(&m7_level);
@@ -285,7 +292,9 @@ int main() {
 		/* update affine matrices */
 		m7_prep_affines(&m7_level);
 
-		tte_printf("#{es;P}z %u, f(z) %u", heightmap_input, heightmap_output);
+		FIXED z = pt_crosshair.y;
+		FIXED fz = m7_level.heightmap(z);
+		tte_printf("#{es;P}z %u, f(z) %u", z, fz);
 	}
 
 	return 0;

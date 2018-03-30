@@ -54,11 +54,18 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 
 	for(int h = start_line; h < SCREEN_HEIGHT; h++) {
-		bg_aff_ptr->pa = 1 << 8; // 8f
-		bg_aff_ptr->pd = 1 << 8; // 8f
+		/* raycast scanline h to determine coordinate z */
+		FIXED z = h; // 0f
+
+		/* call level heightmap */
+		FIXED lambda = (1 << 16) / ((1 << 8) + level->heightmap(z)); // 8f
+
+		/* build affine matrices */
+		bg_aff_ptr->pa = lambda; // 8f
+		bg_aff_ptr->pd = lambda; // 8f
 
 		bg_aff_ptr->dx = 0 << 8; // 8f
-		bg_aff_ptr->dy = h << 8; // 8f
+		bg_aff_ptr->dy = lambda * h; // 8f
 
 		bg_aff_ptr++;
 	}
