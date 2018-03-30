@@ -13,6 +13,8 @@
 #define M7_CBB 0
 #define SKY_SBB 22
 #define FLOOR_SBB 24
+#define TTE_CBB 1
+#define TTE_SBB 20
 #define M7_PRIO 3
 
 /* game globals */
@@ -33,7 +35,7 @@ BG_AFFINE m7_aff_arrs[SCREEN_HEIGHT+1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x000, 0x1900, 0x00 }, /* pos */
+	{ 0x00, 0x2000, 0x00 }, /* pos */
 	CAM_NORMAL, /* camera state */
 	0x0, /* theta */
 	0x0, /* phi */
@@ -53,14 +55,37 @@ void apply_camera_effects();
 void camera_update();
 
 /* implementations */
+static FIXED heightmap_input, heightmap_output;
+FIXED level_heightmap(FIXED z) {
+	static const FIXED depth  = 0x400; // 0f
+
+	static const FIXED level0 = 0x000 << 12; // 12f
+	static const FIXED end0   = 0x100; // 0f
+	static const FIXED start1 = 0x200; // 0f
+	static const FIXED level1 = 0x001 << 12; // 12f
+
+	heightmap_input = z;
+	heightmap_output = (heightmap_input > (depth / 2)) ? level1 : level0;
+	return heightmap_output;
+
+	FIXED y = 0;
+	if (z > end0) {
+		y = level0;
+	} else if (z < start1) {
+		y = level1;
+	} else {
+		FIXED slope = (level1 - level0) / (end0 - start1); // 12f
+		y = slope * (z + end0); // 12f
+	}
+
+	heightmap_output = y;
+	return y;
+}
 
 void init_map() {
 	/* layout level */
-	m7_level.level0 = 0;
-	m7_level.level1 = 128;
-	m7_level.end0 = 256;
-	m7_level.start1 = 512;
-	m7_level.end1 = 1024;
+
+	m7_level.heightmap = &level_heightmap;
 
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs,
@@ -82,7 +107,7 @@ void init_map() {
 	LZ77UnCompVram(bc1skyMap, se_mem[SKY_SBB]);
 
 	// Registers
-	REG_DISPCNT = DCNT_MODE1 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
+	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
 }
 
 
@@ -227,6 +252,9 @@ int main() {
 
 	/* hud */
 	init_cross();
+	tte_init_chr4c_b4_default(0, BG_CBB(TTE_CBB) | BG_SBB(TTE_SBB));
+	tte_init_con();
+	tte_set_margins(8, 8, 232, 40);
 
 	/* irqs */
 	irq_init(NULL);
@@ -256,6 +284,8 @@ int main() {
 
 		/* update affine matrices */
 		m7_prep_affines(&m7_level);
+
+		tte_printf("#{es;P}z %u, f(z) %u", heightmap_input, heightmap_output);
 	}
 
 	return 0;

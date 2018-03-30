@@ -32,7 +32,7 @@ void m7_prep_horizon(m7_level_t *level) {
 		horz = (cam->w.y > 0) ? INT_MIN : INT_MAX;
 	}
 	
-	level->horizon = horz;
+	level->horizon = 0;//horz;
 }
 
 void m7_rotate(m7_cam_t *cam, int phi, int theta) {

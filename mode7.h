@@ -38,8 +38,7 @@ typedef struct _m7_level_t {
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */
 
-	u8 level0, level1; /* height level for floor0, floor1 */
-	u8 end0, start1, end1; /* tile where level0 ends, level1 starts and ends */
+	FIXED (*heightmap)(FIXED);
 } m7_level_t;
 
 /* accessible both from main and iwram */
