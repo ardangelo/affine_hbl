@@ -280,6 +280,12 @@ int main() {
 		/* update cross position  */
 		obj_set_pos(obj_cross, pt_crosshair.x - 4, pt_crosshair.y - 4);
 
+		/* update hud */
+		FIXED z = pt_crosshair.y;
+		FIXED fz = m7_level.heightmap(z);
+		FIXED lambda = (1 << 16) / ((1 << 8) + fz);
+		tte_printf("#{es;P}z %u, f(z) %u, lam %u", z, fz, lambda);
+
 		/* update horizon */
 		m7_prep_horizon(&m7_level);
 		if (m7_level.horizon > 0) {
@@ -291,10 +297,6 @@ int main() {
 
 		/* update affine matrices */
 		m7_prep_affines(&m7_level);
-
-		FIXED z = pt_crosshair.y;
-		FIXED fz = m7_level.heightmap(z);
-		tte_printf("#{es;P}z %u, f(z) %u", z, fz);
 	}
 
 	return 0;

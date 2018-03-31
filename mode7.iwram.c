@@ -64,8 +64,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->pa = lambda; // 8f
 		bg_aff_ptr->pd = lambda; // 8f
 
-		bg_aff_ptr->dx = 0 << 8; // 8f
-		bg_aff_ptr->dy = lambda * h; // 8f
+		bg_aff_ptr->dx = (SCREEN_WIDTH << 7) - (120 * lambda); // 8f
+
+		bg_aff_ptr->dy = (M7_D + z) * lambda; // 8f
 
 		bg_aff_ptr++;
 	}

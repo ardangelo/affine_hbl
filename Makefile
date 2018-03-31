@@ -17,7 +17,7 @@ ASFLAGS	:= -mthumb-interwork
 CFLAGS	:= $(INCLUDE) -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
-ROMNAME	:= 3ps
+ROMNAME	:= affine_hbl
 
 all: $(ROMNAME).gba
 
