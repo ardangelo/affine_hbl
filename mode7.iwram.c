@@ -54,8 +54,8 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 
 	for(int h = start_line; h < SCREEN_HEIGHT; h++) {
-		/* raycast scanline h to determine coordinate z */
-		FIXED z = h; // 0f
+		/* raycast from camera in direction of scanline h to determine z */
+		FIXED z = (a_z >> 8) + h; // 0f
 
 		/* call level heightmap */
 		FIXED lambda = (1 << 16) / ((1 << 8) + level->heightmap(z)); // 8f
@@ -64,8 +64,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->pa = lambda; // 8f
 		bg_aff_ptr->pd = lambda; // 8f
 
-		bg_aff_ptr->dx = (SCREEN_WIDTH << 7) - (120 * lambda); // 8f
-
+		bg_aff_ptr->dx = a_x - (M7_RIGHT * lambda); // 8f
 		bg_aff_ptr->dy = (M7_D + z) * lambda; // 8f
 
 		bg_aff_ptr++;

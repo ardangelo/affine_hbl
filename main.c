@@ -65,6 +65,7 @@ FIXED level_heightmap(FIXED z) { // 0f -> 8f
 	static const FIXED slope = (level1 - level0) / (start1 - end0); // 8f / 0f = 8f
 
 	/* basic slope */
+	z %= depth;
 	FIXED y = 0;
 	if (z < end0) {
 		y = level0;
@@ -138,16 +139,17 @@ void input_game(VECTOR *dir) {
 		/* pitch */
 		m7_level.camera->theta += OMEGA * key_tri_vert();
 
-		/* move crosshair up.down */
-		pt_crosshair.y += aim_speed_y * key_tri_vert();
+		/* L/R: move crosshair up/down */
+		pt_crosshair.y += aim_speed_y * key_tri_shoulder();
 		pt_crosshair.y = CLAMP(pt_crosshair.y, 0, SCREEN_HEIGHT);
 
-#ifdef NO
 		/* strafe */
 		dir->x = VEL_H * key_tri_horz();
-		/* back/forward */
-		dir->z = VEL_H * key_tri_vert();
 
+		/* yaw */
+		m7_level.camera->theta += OMEGA * key_tri_vert();
+
+#ifdef NO
 		/* scope in */
 		if (key_hit(KEY_R)) {
 			g_control_state = CTRL_ZOOMED;
@@ -280,12 +282,6 @@ int main() {
 		/* update cross position  */
 		obj_set_pos(obj_cross, pt_crosshair.x - 4, pt_crosshair.y - 4);
 
-		/* update hud */
-		FIXED z = pt_crosshair.y;
-		FIXED fz = m7_level.heightmap(z);
-		FIXED lambda = (1 << 16) / ((1 << 8) + fz);
-		tte_printf("#{es;P}z %u, f(z) %u, lam %u", z, fz, lambda);
-
 		/* update horizon */
 		m7_prep_horizon(&m7_level);
 		if (m7_level.horizon > 0) {
@@ -297,6 +293,12 @@ int main() {
 
 		/* update affine matrices */
 		m7_prep_affines(&m7_level);
+
+		/* update hud */
+		FIXED z = (m7_cam.pos.z >> 8) + pt_crosshair.y;
+		FIXED fz = m7_level.heightmap(z);
+		FIXED lambda = (1 << 16) / ((1 << 8) + fz);
+		tte_printf("#{es;P}z %u, f(z) %u, lam %u", z, fz, lambda);
 	}
 
 	return 0;
