@@ -6,3 +6,4 @@
 gfx/*.h
 gfx/*.o
 gfx/*.s
+__pycache__

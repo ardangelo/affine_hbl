@@ -20,12 +20,8 @@
 typedef struct _m7_cam_t {
 	VECTOR pos;
 
-	enum {
-		CAM_NORMAL, CAM_ZOOMIN, CAM_ZOOMED, CAM_ZOOMOUT
-	} state;
 	int theta; /* polar angle */
 	int phi; /* azimuth angle */
-	int focal_offs; /* focal length addition */
 	VECTOR u; /* local x-axis */
 	VECTOR v; /* local y-axis */
 	VECTOR w; /* local z-axis */
@@ -34,24 +30,24 @@ typedef struct _m7_cam_t {
 typedef struct _m7_level_t {
 	m7_cam_t *camera;
 	BG_AFFINE *bgaff; /* affine parameter array */
+	u16 *winh; /* window 0 widths */
 	int horizon; /* horizon scanline */
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */
 
-	FIXED (*heightmap)(FIXED);
+	int **blocks;
 } m7_level_t;
 
 /* accessible both from main and iwram */
 extern m7_level_t m7_level;
 
 /* level functions */
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE *aff_arr, u16 skycnt, u16 floorcnt);
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE *aff_arr, u16 *winh_arr, u16 skycnt, u16 floorcnt);
 void m7_prep_horizon(m7_level_t *level);
-void m7_update_sky(const m7_level_t *level);
 
 /* camera functions */
 void m7_rotate(m7_cam_t *cam, int theta, int phi);
-void m7_translate(m7_cam_t *cam, const VECTOR *dir);
+void m7_translate(m7_level_t *level, const VECTOR *dir);
 
 /* iwram code */
 IWRAM_CODE void m7_prep_affines(m7_level_t *level);

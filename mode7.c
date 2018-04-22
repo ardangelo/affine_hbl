@@ -7,9 +7,10 @@ INLINE int m7_horizon_line(const m7_level_t *level) {
 	return clamp(level->horizon, 0, 228);
 }
 
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 skycnt, u16 floorcnt) {
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 winh_arr[], u16 skycnt, u16 floorcnt) {
 	level->camera = cam;
 	level->bgaff = bgaff;
+	level->winh = winh_arr;
 	level->bgcnt_sky = skycnt;
 	level->bgcnt_floor = floorcnt;
 	level->horizon = 80;
@@ -25,7 +26,7 @@ void m7_prep_horizon(m7_level_t *level) {
 	int horz = 0;
 	if (cam->v.y != 0) {
 		horz = (M7_FAR_BG * cam->w.y) - cam->pos.y;
-		horz = M7_TOP - Div(horz * (M7_D + m7_level.camera->focal_offs), M7_FAR_BG * cam->v.y);
+		horz = M7_TOP - Div(horz * M7_D, M7_FAR_BG * cam->v.y);
 		/* horz = M7_TOP - Div(cam->w.y*M7_D, cam->v.y); */
 	} else {
 		/* looking straight down */
@@ -62,13 +63,13 @@ void m7_rotate(m7_cam_t *cam, int phi, int theta) {
 	cam->w.z = (cf * ct) >> 8;
 }
 
-void m7_translate(m7_cam_t *cam, const VECTOR *dir) {
-	cam->pos.x += ((cam->u.x * dir->x) - (cam->u.z * dir->z)) >> 8;
-	cam->pos.y += dir->y;
-	cam->pos.z += ((cam->u.z * dir->x) + (cam->u.x * dir->z)) >> 8;
-}
+void m7_translate(m7_level_t *level, const VECTOR *dir) {
+	m7_cam_t *cam = level->camera;
 
-void m7_update_sky(const m7_level_t *level) {
-	REG_BG2HOFS = (level->camera->phi >> 6) + M7_LEFT;
-	REG_BG2VOFS = (-m7_horizon_line(level)) - 1;
+	VECTOR pos = cam->pos;
+	pos.x += ((cam->u.x * dir->x) - (cam->u.z * dir->z)) >> 8;
+	pos.y += dir->y;
+	pos.z += ((cam->u.z * dir->x) + (cam->u.x * dir->z)) >> 8;
+
+	cam->pos = pos;
 }
