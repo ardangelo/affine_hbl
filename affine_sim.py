@@ -129,6 +129,8 @@ def m7_hbl():
         if (draw_end >= SCREEN_WIDTH):
             draw_end = SCREEN_WIDTH
 
+        print(int(perp_wall_dist))
+
         # calculate affine matrix
         bgaff1[h].pa = int(perp_wall_dist)
         bgaff1[h].pd = int(perp_wall_dist)

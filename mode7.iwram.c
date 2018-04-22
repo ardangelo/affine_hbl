@@ -19,7 +19,7 @@ IWRAM_CODE void m7_hbl() {
 	REG_BG_AFFINE[2] = *bga;
 
 	REG_WIN0H = m7_level.winh[vc + 1];
-	REG_WIN0V = 0 << 8 | SCREEN_WIDTH;
+	REG_WIN0V = 0 << 8 | SCREEN_HEIGHT;
 }
 
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
@@ -35,16 +35,12 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED a_x = cam->pos.x; // 8f
 	FIXED a_y = cam->pos.y; // 8f
 	FIXED a_z = cam->pos.z; // 8f
-	a_x = 22 << 8;
-	a_z = 12 << 8;
 
 	/* sines and cosines of yaw, pitch */
 	FIXED cos_phi   = cam->u.x; // 8f
 	FIXED sin_phi   = cam->u.z; // 8f
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
-	cos_theta = -1 << 8;
-	sin_theta = 0 << 8;
 
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 	u16 *winh_ptr = &level->winh[start_line];
@@ -76,18 +72,18 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 		if (dir_x < 0) {
 			step_x = -1;
-			side_dist_x = ((a_x - (map_x << 8)) << 8) / dir_x;
+			side_dist_x = ((a_x - (map_x << 8)) * delta_dist_x) >> 8;
 		} else {
 			step_x = 1;
-			side_dist_x = (((map_x << 8) + (1 << 8) - a_x) << 8) / dir_x;
+			side_dist_x = (((map_x << 8) + (1 << 8) - a_x) * delta_dist_x) >> 8;
 		}
 
 		if (dir_z < 0) {
 			step_z = -1;
-			side_dist_z = ((a_z - (map_z << 8)) << 8) / dir_z;
+			side_dist_z = ((a_z - (map_z << 8)) * delta_dist_z) >> 8;
 		} else {
 			step_z = 1;
-			side_dist_z = (((map_z << 8) + (1 << 8) - a_z) << 8) / dir_z;
+			side_dist_z = (((map_z << 8) + (1 << 8) - a_z) * delta_dist_z) >> 8;
 		}
 
 		int hit = 0;
@@ -110,9 +106,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 		FIXED perp_wall_dist = 0;
 		if (side == 0) {
-			perp_wall_dist = (((map_x << 8) - a_x + ((1 - step_x) << 8) / 2) << 8) / dir_x;
+			perp_wall_dist = (((map_x << 8) - a_x + ((1 - step_x) << 8) / 2) * delta_dist_x) >> 8;
 		} else {
-			perp_wall_dist = (((map_z << 8) - a_z + ((1 - step_z) << 8) / 2) << 8) / dir_z;
+			perp_wall_dist = (((map_z << 8) - a_z + ((1 - step_z) << 8) / 2) * delta_dist_z) >> 8;
 		}
 		if (perp_wall_dist == 0) {
 			perp_wall_dist = 1;
@@ -131,6 +127,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* build affine matrices */
 		bg_aff_ptr->pa = perp_wall_dist; // 8f
 		bg_aff_ptr->pd = perp_wall_dist; // 8f
+
+		bg_aff_ptr->dx = 0;
+		bg_aff_ptr->dy = (h << 8);
 
 		bg_aff_ptr++;
 	}

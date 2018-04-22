@@ -24,12 +24,12 @@ u16 m7_winh[SCREEN_HEIGHT + 1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x010 << 8, 0x020 << 8, 0x010 << 8 }, /* pos */
+	{ 22 << 8, 0x0200, 12 << 8 }, /* pos */
 	0x0, /* theta */
 	0x0, /* phi */
-	{1 << 8, 0 << 8, 0 << 8}, /* u */
-	{0 << 8, 1 << 8, 0 << 8}, /* v */
-	{0 << 8, 0 << 8, 1 << 8}  /* w */
+	{1 << 8,  0 << 8, 0 << 8}, /* u */
+	{0 << 8, -1 << 8, 0 << 8}, /* v */
+	{0 << 8,  0 << 8, 1 << 8}  /* w */
 };
 
 /* prototypes */
@@ -132,8 +132,8 @@ void init_map() {
 }
 
 void input_game(VECTOR *dir) {
-	const FIXED VEL_H = 0x200;
-	const FIXED VEL_Y = 0x200;
+	const FIXED VEL_H = 0x1 << 8;
+	const FIXED VEL_Y = 0x1 << 8;
 
 	key_poll();
 
