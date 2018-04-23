@@ -46,7 +46,7 @@ IWRAM_CODE void m7_hbl() {
 	REG_BG_AFFINE[2] = *bga;
 
 	REG_WIN0H = m7_level.winh[vc + 1];
-	REG_WIN0V = 0 << 8 | SCREEN_HEIGHT;
+	REG_WIN0V = WIN_BUILD(vc, vc + 1);
 }
 
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
@@ -80,17 +80,13 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED plane_z = float2fx(0.66);
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
-		FIXED x_c = 2 * fxsub(fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
 		/* ray components in world space */
 		FIXED ray_x = fxadd(cos_theta, fxmul(plane_x, x_c));
-		if (ray_x == 0) {
-			ray_x = 1;
-		}
+		if (ray_x == 0) { ray_x = 1; }
 		FIXED ray_z = fxadd(sin_theta, fxmul(plane_z, x_c));
-		if (ray_z == 0) {
-			ray_z = 1;
-		}
+		if (ray_z == 0) { ray_z = 1; }
 
 		/* map coordinates */
 		int map_x = fx2int(a_x);
@@ -140,30 +136,32 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* calculate wall distance */
 		FIXED perp_wall_dist;
 		if (side == 0) {
-			perp_wall_dist = fxadd(fxsub(int2fx(map_x), a_x), fxdiv(int2fx(1 - delta_map_x), int2fx(2)));
+			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_x), a_x), fxdiv(int2fx(1 - delta_map_x), int2fx(2))), ray_x);
 		} else {
-			perp_wall_dist = fxadd(fxsub(int2fx(map_z), a_z), fxdiv(int2fx(1 - delta_map_z), int2fx(2)));
+			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_z), a_z), fxdiv(int2fx(1 - delta_map_z), int2fx(2))), ray_z);
 		}
 		if (perp_wall_dist == 0) {
 			perp_wall_dist = 1;
 		}
 
-		int line_height = fx2int(fxdiv(int2fx(h), perp_wall_dist));
+		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
 		int draw_start = -line_height / 2 + SCREEN_WIDTH / 2;
 		if (draw_start < 0) { draw_start = 0; }
 		int draw_end = line_height / 2 + SCREEN_WIDTH / 2;
 		if (draw_end >= SCREEN_WIDTH) { draw_end = SCREEN_WIDTH; }
 
 		/* apply windowing */
-		*winh_ptr = draw_start << 8 | draw_end;
+		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 		winh_ptr++;
 
 		/* build affine matrices */
-		bg_aff_ptr->pa = perp_wall_dist;
-		bg_aff_ptr->pd = perp_wall_dist;
+		FIXED lambda = perp_wall_dist;
 
-		bg_aff_ptr->dx = 0;
-		bg_aff_ptr->dy = int2fx(h);
+		bg_aff_ptr->pa = lambda;
+		bg_aff_ptr->pd = lambda;
+
+		bg_aff_ptr->dx = perp_wall_dist;
+		bg_aff_ptr->dy = line_height;
 
 		bg_aff_ptr++;
 	}

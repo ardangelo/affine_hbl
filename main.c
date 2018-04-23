@@ -102,6 +102,7 @@ void init_map() {
 	// Registers
 	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
 	REG_WININ = WININ_BUILD(WIN_BG2, 0);
+	REG_WINOUT = WINOUT_BUILD(WIN_BG0, 0);
 }
 
 void input_game(VECTOR *dir) {
@@ -156,7 +157,10 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		// tte_printf("#{es;P}pwd %u", m7_level.camera->pos.x, m7_level.camera->pos.y, m7_level.camera->pos.z);
+		tte_printf("#{es;P}1 %d,%d 80 %d,%d 160 %d,%d",
+			m7_level.bgaff[0].dx, m7_level.bgaff[0].dy,
+			m7_level.bgaff[80].dx, m7_level.bgaff[80].dy,
+			m7_level.bgaff[160].dx, m7_level.bgaff[160].dy);
 	}
 
 	return 0;
