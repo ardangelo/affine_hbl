@@ -46,13 +46,17 @@ IWRAM_CODE void m7_hbl() {
 	REG_WIN0V = WIN_BUILD(SCREEN_HEIGHT, 0);
 
 	/* apply shading */
-	if (bga->pb == 1) {	
-		BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
-		REG_BG2CNT = m7_level.bgcnt_sky;
-	} else {
-		BFN_SET(REG_DISPCNT, DCNT_MODE1, DCNT_MODE);
-		REG_BG2CNT = m7_level.bgcnt_floor;
+	static int last_side = -1;
+	if (last_side != bga->pb) {
+		if (bga->pb == 1) {
+			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
+			REG_BG2CNT = m7_level.bgcnt_sky;
+		} else {
+			BFN_SET(REG_DISPCNT, DCNT_MODE1, DCNT_MODE);
+			REG_BG2CNT = m7_level.bgcnt_floor;
+		}
 	}
+	last_side = bga->pb;
 }
 
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
@@ -78,8 +82,8 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 	u16 *winh_ptr = &level->winh[start_line];
 
-	FIXED plane_y = float2fx(0.0);
-	FIXED plane_z = float2fx(0.66);
+	FIXED plane_y = fxmul(float2fx(0.66), cos_theta);
+	FIXED plane_z = fxmul(float2fx(-0.66), sin_theta);
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
