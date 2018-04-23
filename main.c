@@ -38,8 +38,8 @@ u16 m7_winh[SCREEN_HEIGHT + 1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 22 << FIX_SHIFT, 0x0200, 12 << FIX_SHIFT }, /* pos */
-	0x0, /* theta */
+	{ 0x0, 22 << FIX_SHIFT, 12 << FIX_SHIFT }, /* pos */
+	0xC000, /* theta */
 	0x0, /* phi */
 	{1 << FIX_SHIFT, 0, 0}, /* u */
 	{0, -1 << FIX_SHIFT, 0}, /* v */
@@ -119,17 +119,16 @@ void init_map() {
 	REG_WINOUT = WINOUT_BUILD(WIN_BG0, 0);
 }
 
+const FIXED OMEGA = 0x200;
+const FIXED VEL_Z = -0x1 << 6;
 void input_game(VECTOR *dir) {
-	const FIXED VEL_H = 0x1 << 5;
-	const FIXED VEL_Y = 0x1 << 5;
-
 	key_poll();
 
-	/* strafe */
-	dir->x = VEL_H * key_tri_horz();
-
 	/* forwards / backwards */
-	dir->z = VEL_Y * key_tri_vert();
+	dir->z = VEL_Z * key_tri_vert();
+
+	/* rotate */
+	m7_level.camera->theta -= OMEGA * key_tri_horz();
 }
 
 void camera_update(VECTOR *dir) {
@@ -137,7 +136,7 @@ void camera_update(VECTOR *dir) {
 	m7_rotate(m7_level.camera, m7_level.camera->phi, m7_level.camera->theta);
 
 	/* update camera position */
-	m7_translate(&m7_level, dir);
+	m7_translate_local(&m7_level, dir);
 
 	/* don't sink through the ground */
 	if(m7_level.camera->pos.y < (2 << 8)) {
@@ -171,13 +170,14 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		/*
-		int offs = 5;
-		tte_printf("#{es;P}%d %d,%d %d %d,%d %d %d,%d",
-			1 + offs, m7_level.bgaff[1 + offs].dx, m7_level.bgaff[1 + offs].dy,
-			80 + offs, m7_level.bgaff[80 + offs].dx, m7_level.bgaff[80 + offs].dy,
-			100 + offs, m7_level.bgaff[100 + offs].dx, m7_level.bgaff[100 + offs].dy);
-			*/
+		tte_printf("#{es;P}map: (%d, %d, %d) w <%d, %d, %d> th %d",
+			fx2int(m7_level.camera->pos.x),
+			fx2int(m7_level.camera->pos.y),
+			fx2int(m7_level.camera->pos.z),
+			m7_level.camera->w.x,
+			m7_level.camera->w.y,
+			m7_level.camera->w.z,
+			m7_level.camera->theta);
 	}
 
 	return 0;

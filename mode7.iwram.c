@@ -68,41 +68,39 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED sin_phi   = cam->u.z; // 8f
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
-	cos_theta = int2fx(-1);
-	sin_theta = 0;
 
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 	u16 *winh_ptr = &level->winh[start_line];
 
-	FIXED plane_x = float2fx(0.0);
-	FIXED plane_z = float2fx(0.66);
+	FIXED plane_y = float2fx(0.0);
+	FIXED plane_z = float2fx(0.5);
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
 		/* ray components in world space */
-		FIXED ray_x = fxadd(cos_theta, fxmul(plane_x, x_c));
-		if (ray_x == 0) { ray_x = 1; }
-		FIXED ray_z = fxadd(sin_theta, fxmul(plane_z, x_c));
+		FIXED ray_y = fxadd(sin_theta, fxmul(plane_y, x_c));
+		if (ray_y == 0) { ray_y = 1; }
+		FIXED ray_z = fxadd(cos_theta, fxmul(plane_z, x_c));
 		if (ray_z == 0) { ray_z = 1; }
 
 		/* map coordinates */
-		int map_x = fx2int(a_x);
+		int map_y = fx2int(a_y);
 		int map_z = fx2int(a_z);
 
 		/* ray lengths to next x / z side */
-		FIXED delta_dist_x = ABS(fxdiv(int2fx(1), ray_x));
+		FIXED delta_dist_y = ABS(fxdiv(int2fx(1), ray_y));
 		FIXED delta_dist_z = ABS(fxdiv(int2fx(1), ray_z));
 
 		/* initialize map / distance steps */
-		int delta_map_x, delta_map_z;
-		FIXED dist_x, dist_z;
-		if (ray_x < 0) {
-			delta_map_x = -1;
-			dist_x = fxmul(fxsub(a_x, int2fx(map_x)), delta_dist_x);
+		int delta_map_y, delta_map_z;
+		FIXED dist_y, dist_z;
+		if (ray_y < 0) {
+			delta_map_y = -1;
+			dist_y = fxmul(fxsub(a_y, int2fx(map_y)), delta_dist_y);
 		} else {
-			delta_map_x = 1;
-			dist_x = fxmul(fxadd(int2fx(map_x + 1), a_x), delta_dist_x);
+			delta_map_y = 1;
+			dist_y = fxmul(fxadd(int2fx(map_y + 1), a_y), delta_dist_y);
 		}
 		if (ray_z < 0) {
 			delta_map_z = -1;
@@ -116,9 +114,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		int hit = 0;
 		int side;
 		while (!hit) {
-			if (dist_x < dist_z) {
-				dist_x += delta_dist_x;
-				map_x += delta_map_x;
+			if (dist_y < dist_z) {
+				dist_y += delta_dist_y;
+				map_y += delta_map_y;
 				side = 0;
 			} else {
 				dist_z += delta_dist_z;
@@ -126,7 +124,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 				side = 1;
 			}
 
-			if (worldMap[map_x][map_z] > 0) {
+			if (worldMap[map_y][map_z] > 0) {
 				hit = 1;
 			}
 		}
@@ -134,7 +132,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* calculate wall distance */
 		FIXED perp_wall_dist;
 		if (side == 0) {
-			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_x), a_x), fxdiv(int2fx(1 - delta_map_x), int2fx(2))), ray_x);
+			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_y), a_y), fxdiv(int2fx(1 - delta_map_y), int2fx(2))), ray_y);
 		} else {
 			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_z), a_z), fxdiv(int2fx(1 - delta_map_z), int2fx(2))), ray_z);
 		}
