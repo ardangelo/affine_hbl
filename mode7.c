@@ -65,9 +65,14 @@ void m7_rotate(m7_cam_t *cam, int phi, int theta) {
 void m7_translate_local(m7_level_t *level, const VECTOR *dir) {
 	m7_cam_t *cam = level->camera;
 
-	cam->pos.x += (cam->u.x * dir->x + cam->v.x * dir->y + cam->w.x * dir->z) >> 8;
-	cam->pos.y += ( 0                + cam->v.y * dir->y + cam->w.y * dir->z) >> 8;
-	cam->pos.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
+	VECTOR pos = cam->pos;
+	pos.x += (cam->u.x * dir->x + cam->v.x * dir->y + cam->w.x * dir->z) >> 8;
+	pos.y += ( 0                + cam->v.y * dir->y + cam->w.y * dir->z) >> 8;
+	pos.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
+
+	if ((pos.y >= 0) && (pos.y < (24 << 8)) && (pos.z >= 0) && (pos.z < (24 << 8))) {
+		cam->pos = pos;
+	}
 }
 
 void m7_translate_level(m7_level_t *level, const VECTOR *dir) {
