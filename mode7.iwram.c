@@ -46,7 +46,7 @@ IWRAM_CODE void m7_hbl() {
 	REG_BG_AFFINE[2] = *bga;
 
 	REG_WIN0H = m7_level.winh[vc + 1];
-	REG_WIN0V = WIN_BUILD(vc, vc + 1);
+	REG_WIN0V = WIN_BUILD(SCREEN_HEIGHT, 0);
 }
 
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
@@ -62,8 +62,6 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED a_x = cam->pos.x; // 8f
 	FIXED a_y = cam->pos.y; // 8f
 	FIXED a_z = cam->pos.z; // 8f
-	a_x = int2fx(22);
-	a_z = int2fx(12);
 
 	/* sines and cosines of yaw, pitch */
 	FIXED cos_phi   = cam->u.x; // 8f
@@ -93,8 +91,8 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		int map_z = fx2int(a_z);
 
 		/* ray lengths to next x / z side */
-		FIXED delta_dist_x = fxdiv(int2fx(1), ray_x);
-		FIXED delta_dist_z = fxdiv(int2fx(1), ray_z);
+		FIXED delta_dist_x = ABS(fxdiv(int2fx(1), ray_x));
+		FIXED delta_dist_z = ABS(fxdiv(int2fx(1), ray_z));
 
 		/* initialize map / distance steps */
 		int delta_map_x, delta_map_z;
@@ -160,8 +158,8 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->pa = lambda;
 		bg_aff_ptr->pd = lambda;
 
-		bg_aff_ptr->dx = perp_wall_dist;
-		bg_aff_ptr->dy = line_height;
+		bg_aff_ptr->dx = 0;
+		bg_aff_ptr->dy = int2fx(h);
 
 		bg_aff_ptr++;
 	}

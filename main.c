@@ -9,6 +9,20 @@
 #include "gfx/bc1sky.h"
 #include "gfx/bgpal.h"
 
+#define DEBUG(fmt, ...)
+#define DEBUGFMT(fmt, ...)
+
+/*
+#include <stdlib.h>
+char *dbg_str;
+#define DEBUG(str) (nocash_puts(str))
+#define DEBUGFMT(fmt, ...) do {	  \
+		asprintf(&dbg_str, fmt, __VA_ARGS__); \
+		nocash_puts(dbg_str); \
+		free(dbg_str); \
+	} while (0)
+*/
+
 /* block mappings */
 #define M7_CBB 0
 #define SKY_SBB 22
@@ -106,8 +120,8 @@ void init_map() {
 }
 
 void input_game(VECTOR *dir) {
-	const FIXED VEL_H = 0x1 << 8;
-	const FIXED VEL_Y = 0x1 << 8;
+	const FIXED VEL_H = 0x1 << 5;
+	const FIXED VEL_Y = 0x1 << 5;
 
 	key_poll();
 
@@ -157,10 +171,13 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		tte_printf("#{es;P}1 %d,%d 80 %d,%d 160 %d,%d",
-			m7_level.bgaff[0].dx, m7_level.bgaff[0].dy,
-			m7_level.bgaff[80].dx, m7_level.bgaff[80].dy,
-			m7_level.bgaff[160].dx, m7_level.bgaff[160].dy);
+		/*
+		int offs = 5;
+		tte_printf("#{es;P}%d %d,%d %d %d,%d %d %d,%d",
+			1 + offs, m7_level.bgaff[1 + offs].dx, m7_level.bgaff[1 + offs].dy,
+			80 + offs, m7_level.bgaff[80 + offs].dx, m7_level.bgaff[80 + offs].dy,
+			100 + offs, m7_level.bgaff[100 + offs].dx, m7_level.bgaff[100 + offs].dy);
+			*/
 	}
 
 	return 0;
