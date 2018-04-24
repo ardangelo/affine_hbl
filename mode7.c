@@ -37,6 +37,10 @@ void m7_prep_horizon(m7_level_t *level) {
 }
 
 void m7_rotate(m7_cam_t *cam, int phi, int theta) {
+	/* limited to fixpoint range */
+	phi &= 0xFFFF;
+	phi &= 0xFFFF;
+
 	cam->phi = phi;
 	cam->theta = theta;
 

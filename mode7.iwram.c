@@ -2,6 +2,8 @@
 
 #include "mode7.h"
 
+#define TRIG_ANGLE_MAX 0xFFFF
+
 IWRAM_CODE void m7_hbl() {
 	int vc = REG_VCOUNT;
 	int horz = m7_level.horizon;
@@ -133,13 +135,17 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* build affine matrices */
 		FIXED lambda = perp_wall_dist;
 
-		bg_aff_ptr->pa = int2fx(1);
-		bg_aff_ptr->pd = int2fx(1);
+		bg_aff_ptr->pa = lambda;
+		bg_aff_ptr->pd = lambda;
 
 		bg_aff_ptr->pb = side;
 
-		bg_aff_ptr->dx = perp_wall_dist;
-		bg_aff_ptr->dy = int2fx(h);
+		bg_aff_ptr->dx = fxmul(lambda, int2fx(M7_LEFT));
+
+		FIXED theta_correction = int2fx((level->texture_height * level->camera->theta) / TRIG_ANGLE_MAX);
+		int pixels_per_block = level->texture_height / level->blocks_height;
+		FIXED position_correction = 0; // a_z * pixels_per_block;
+		bg_aff_ptr->dy = fxadd(fxadd(theta_correction, position_correction), int2fx(h));
 
 		bg_aff_ptr++;
 	}

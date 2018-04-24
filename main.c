@@ -9,11 +9,10 @@
 #include "gfx/bc1sky.h"
 #include "gfx/bgpal.h"
 
-/*
 #define DEBUG(fmt, ...)
 #define DEBUGFMT(fmt, ...)
-*/
 
+/*
 #include <stdlib.h>
 char *dbg_str;
 #define DEBUG(str) (nocash_puts(str))
@@ -22,6 +21,7 @@ char *dbg_str;
 		nocash_puts(dbg_str); \
 		free(dbg_str); \
 	} while (0)
+*/
 
 /* block mappings */
 #define M7_CBB 0
@@ -87,6 +87,7 @@ void init_map() {
 	m7_level.blocks = (int*)blocks;
 	m7_level.blocks_width = 24;
 	m7_level.blocks_height = 24;
+	m7_level.texture_height = 1024;
 
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs, m7_winh,
@@ -107,7 +108,7 @@ void init_map() {
 	LZ77UnCompVram(bc1skyTiles, &tile_mem[M7_CBB][128]);
 	LZ77UnCompVram(bc1skyMap, se_mem[SKY_SBB]);
 
-	// Registers
+	/* registers */
 	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
 	REG_WININ = WININ_BUILD(WIN_BG2, 0);
 	REG_WINOUT = WINOUT_BUILD(WIN_BG0, 0);
@@ -165,19 +166,14 @@ int main() {
 
 		/* update hud */
 		
-		int idx = (fx2int(m7_level.camera->pos.y) * m7_level.blocks_width) + fx2int(m7_level.camera->pos.z);
-		tte_printf("#{es;P}v <%d, %d, %d>, w <%d, %d, %d>",
+		tte_printf("#{es;P}v <%d, %d, %d>, w <%d, %d, %d> th %u",
 			m7_level.camera->v.x,
 			m7_level.camera->v.y,
 			m7_level.camera->v.z,
 			m7_level.camera->w.x,
 			m7_level.camera->w.y,
-			m7_level.camera->w.z);
-		/*
-		for (int i = 0; i < 160; i++) {
-			DEBUGFMT("%d: pwd %d", i, m7_level.bgaff[i].dx);
-		}
-		*/
+			m7_level.camera->w.z,
+			m7_level.camera->theta);
 	}
 
 	return 0;
