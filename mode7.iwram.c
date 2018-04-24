@@ -2,33 +2,6 @@
 
 #include "mode7.h"
 
-static const int worldMap[24][24]= {
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,0,0,0,5,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-};
-
 IWRAM_CODE void m7_hbl() {
 	int vc = REG_VCOUNT;
 	int horz = m7_level.horizon;
@@ -82,16 +55,15 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 	u16 *winh_ptr = &level->winh[start_line];
 
-	FIXED plane_y = fxmul(float2fx(0.66), cos_theta);
-	FIXED plane_z = fxmul(float2fx(-0.66), sin_theta);
+	const FIXED fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
 		/* ray components in world space */
-		FIXED ray_y = fxadd(sin_theta, fxmul(plane_y, x_c));
+		FIXED ray_y = fxadd(sin_theta, fxmul(fxmul(fov, cos_theta), x_c));
 		if (ray_y == 0) { ray_y = 1; }
-		FIXED ray_z = fxadd(cos_theta, fxmul(plane_z, x_c));
+		FIXED ray_z = fxsub(cos_theta, fxmul(fxmul(fov, sin_theta), x_c));
 		if (ray_z == 0) { ray_z = 1; }
 
 		/* map coordinates */
@@ -110,14 +82,14 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 			dist_y = fxmul(fxsub(a_y, int2fx(map_y)), delta_dist_y);
 		} else {
 			delta_map_y = 1;
-			dist_y = fxmul(fxadd(int2fx(map_y + 1), a_y), delta_dist_y);
+			dist_y = fxmul(fxsub(int2fx(map_y + 1), a_y), delta_dist_y);
 		}
 		if (ray_z < 0) {
 			delta_map_z = -1;
 			dist_z = fxmul(fxsub(a_z, int2fx(map_z)), delta_dist_z);
 		} else {
 			delta_map_z = 1;
-			dist_z = fxmul(fxadd(int2fx(map_z + 1), a_z), delta_dist_z);
+			dist_z = fxmul(fxsub(int2fx(map_z + 1), a_z), delta_dist_z);
 		}
 
 		/* perform raycast */
@@ -134,7 +106,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 				side = 1;
 			}
 
-			if (worldMap[map_y][map_z] > 0) {
+			if (m7_level.blocks[map_y * m7_level.blocks_width + map_z] > 0) {
 				hit = 1;
 			}
 		}
@@ -146,9 +118,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		} else {
 			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_z), a_z), fxdiv(int2fx(1 - delta_map_z), int2fx(2))), ray_z);
 		}
-		if (perp_wall_dist == 0) {
-			perp_wall_dist = 1;
-		}
+		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
 		int draw_start = -line_height / 2 + SCREEN_WIDTH / 2;
@@ -163,12 +133,12 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* build affine matrices */
 		FIXED lambda = perp_wall_dist;
 
-		bg_aff_ptr->pa = lambda;
-		bg_aff_ptr->pd = lambda;
+		bg_aff_ptr->pa = int2fx(1);
+		bg_aff_ptr->pd = int2fx(1);
 
 		bg_aff_ptr->pb = side;
 
-		bg_aff_ptr->dx = 0;
+		bg_aff_ptr->dx = perp_wall_dist;
 		bg_aff_ptr->dy = int2fx(h);
 
 		bg_aff_ptr++;

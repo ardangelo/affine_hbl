@@ -35,7 +35,8 @@ typedef struct _m7_level_t {
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */
 
-	int **blocks;
+	int *blocks;
+	int blocks_width, blocks_height;
 } m7_level_t;
 
 /* accessible both from main and iwram */

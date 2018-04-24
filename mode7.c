@@ -70,8 +70,19 @@ void m7_translate_local(m7_level_t *level, const VECTOR *dir) {
 	pos.y += ( 0                + cam->v.y * dir->y + cam->w.y * dir->z) >> 8;
 	pos.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
 
-	if ((pos.y >= 0) && (pos.y < (24 << 8)) && (pos.z >= 0) && (pos.z < (24 << 8))) {
-		cam->pos = pos;
+	/* update x */
+	cam->pos.x = pos.x;
+
+	/* check y / z wall collision independently */
+	if ((pos.y >= 0) && (fx2int(pos.y) < level->blocks_height)) {
+		if (level->blocks[(fx2int(pos.y) * m7_level.blocks_width) + fx2int(cam->pos.z)] == 0) {
+			cam->pos.y = pos.y;
+		}
+	}
+	if ((pos.z >= 0) && (fx2int(pos.z) < level->blocks_width)) {
+		if (level->blocks[(fx2int(cam->pos.y) * m7_level.blocks_width) + fx2int(pos.z)] == 0) {
+			cam->pos.z = pos.z;
+		}
 	}
 }
 
