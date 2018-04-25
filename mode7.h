@@ -38,6 +38,8 @@ typedef struct _m7_level_t {
 	int *blocks;
 	int blocks_width, blocks_height;
 	int texture_height;
+
+	FIXED info;
 } m7_level_t;
 
 /* accessible both from main and iwram */

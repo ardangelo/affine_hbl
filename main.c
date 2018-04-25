@@ -39,7 +39,7 @@ m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
 	{ 0x0, 12 << FIX_SHIFT, 12 << FIX_SHIFT }, /* pos */
-	0x0000, /* theta */
+	0xC000, /* theta */
 	0x0, /* phi */
 	{1 << FIX_SHIFT, 0, 0}, /* u */
 	{0, 1 << FIX_SHIFT, 0}, /* v */
@@ -119,6 +119,9 @@ const FIXED VEL_Z = -0x1 << 6;
 void input_game(VECTOR *dir) {
 	key_poll();
 
+	/* up / down */
+	dir->y = VEL_Z * key_tri_shoulder();
+
 	/* forwards / backwards */
 	dir->z = VEL_Z * key_tri_vert();
 
@@ -165,15 +168,8 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		
-		tte_printf("#{es;P}v <%d, %d, %d>, w <%d, %d, %d> th %u",
-			m7_level.camera->v.x,
-			m7_level.camera->v.y,
-			m7_level.camera->v.z,
-			m7_level.camera->w.x,
-			m7_level.camera->w.y,
-			m7_level.camera->w.z,
-			m7_level.camera->theta);
+		tte_printf("#{es;P}corr %x",
+			m7_level.info);
 	}
 
 	return 0;

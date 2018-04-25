@@ -58,6 +58,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	u16 *winh_ptr = &level->winh[start_line];
 
 	const FIXED fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
+	const FIXED pixels_per_block = fxdiv(int2fx(level->texture_height), int2fx(level->blocks_height));
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
@@ -123,9 +124,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
-		int draw_start = -line_height / 2 + SCREEN_WIDTH / 2;
+		int draw_start = -line_height / 2 + M7_RIGHT;
 		if (draw_start < 0) { draw_start = 0; }
-		int draw_end = line_height / 2 + SCREEN_WIDTH / 2;
+		int draw_end = line_height / 2 + M7_RIGHT;
 		if (draw_end >= SCREEN_WIDTH) { draw_end = SCREEN_WIDTH; }
 
 		/* apply windowing */
@@ -142,10 +143,24 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 		bg_aff_ptr->dx = fxmul(lambda, int2fx(M7_LEFT));
 
-		FIXED theta_correction = int2fx((level->texture_height * level->camera->theta) / TRIG_ANGLE_MAX);
-		int pixels_per_block = level->texture_height / level->blocks_height;
-		FIXED position_correction = 0; // a_z * pixels_per_block;
-		bg_aff_ptr->dy = fxadd(fxadd(theta_correction, position_correction), int2fx(h));
+		/* calculate angle correction */
+		FIXED alpha = fxmul(x_c, fov);
+		FIXED angle = fxadd(level->camera->theta, alpha) >> 4;
+		FIXED angle_correction = fxdiv(level->texture_height * angle, TRIG_ANGLE_MAX >> 4);
+
+		FIXED position_correction;
+		if (side == 0) {
+			position_correction = fxadd(a_z, fxmul(perp_wall_dist, ray_z));
+		} else {
+			position_correction = fxadd(a_y, fxmul(perp_wall_dist, ray_y));
+		}
+		position_correction = fxmul(position_correction, pixels_per_block);
+
+		bg_aff_ptr->dy = fxadd(int2fx(h), angle_correction);
+
+		if (h == 80) {
+			level->info = angle;
+		}
 
 		bg_aff_ptr++;
 	}

@@ -44,9 +44,9 @@ class Vector:
         self.x = x
         self.y = y
         self.z = z
-cam_pos = Vector(22 << 8, 0 << 8, 12 << 8)
+cam_pos = Vector(12 << 8, 0 << 8, 12 << 8)
 cam_u = Vector(1 << 8, 0, 0)
-cam_v = Vector(0, -1 << 8, 0)
+cam_v = Vector(0, 1 << 8, 0)
 cam_w = Vector(0,  0, 1 << 0)
 
 # per-hblank calculations
@@ -61,7 +61,7 @@ def m7_hbl():
     sin_theta = cam_w.y
 
     plane_x = 0 << 8
-    plane_z = 1 << 8
+    plane_z = int(0.66 * float(1 << 8))
 
     for h in range(SCREEN_HEIGHT):
         x_c = int(2 * (h << 8) / SCREEN_HEIGHT - (1 << 8))
@@ -129,7 +129,8 @@ def m7_hbl():
         if (draw_end >= SCREEN_WIDTH):
             draw_end = SCREEN_WIDTH
 
-        print(int(perp_wall_dist))
+        #print('%d -> %d' % (delta_dist_x, delta_dist_z))
+        print('%d: %d' % (h, perp_wall_dist))
 
         # calculate affine matrix
         bgaff1[h].pa = int(perp_wall_dist)
