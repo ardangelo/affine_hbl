@@ -169,7 +169,7 @@ int main() {
 
 		/* update hud */
 		tte_printf("#{es;P}corr %x",
-			m7_level.info);
+			m7_level.bgaff[0].pd);
 	}
 
 	return 0;
