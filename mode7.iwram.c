@@ -163,7 +163,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 		/* pb and pd aren't used (q_y is implicitly zero) */
 		bg_aff_ptr->pb = side;
-		bg_aff_ptr->pd = alpha_correction;
+		bg_aff_ptr->pd = 0;
 
 		bg_aff_ptr++;
 	}
