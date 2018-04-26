@@ -20,12 +20,8 @@
 typedef struct _m7_cam_t {
 	VECTOR pos;
 
-	enum {
-		CAM_NORMAL, CAM_ZOOMIN, CAM_ZOOMED, CAM_ZOOMOUT
-	} state;
 	int theta; /* polar angle */
 	int phi; /* azimuth angle */
-	int focal_offs; /* focal length addition */
 	VECTOR u; /* local x-axis */
 	VECTOR v; /* local y-axis */
 	VECTOR w; /* local z-axis */
@@ -37,8 +33,6 @@ typedef struct _m7_level_t {
 	int horizon; /* horizon scanline */
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */
-
-	FIXED (*heightmap)(FIXED);
 } m7_level_t;
 
 /* accessible both from main and iwram */

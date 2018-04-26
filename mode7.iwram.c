@@ -54,18 +54,19 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 
 	for(int h = start_line; h < SCREEN_HEIGHT; h++) {
-		/* raycast from camera in direction of scanline h to determine z */
-		FIXED z = (a_z >> 8) + h; // 0f
+		FIXED yb = (h - M7_TOP) * cos_theta + M7_D * sin_theta; // 12f
+		FIXED lambda = DivSafe(a_y << 12, yb); // 12f
 
-		/* call level heightmap */
-		FIXED lambda = (1 << 16) / ((1 << 8) + level->heightmap(z)); // 8f
+		FIXED lambda_cos_phi = (lambda * cos_phi) >> 8; // 12f
+		FIXED lambda_sin_phi = (lambda * sin_phi) >> 8; // 12f
 
 		/* build affine matrices */
-		bg_aff_ptr->pa = lambda; // 8f
-		bg_aff_ptr->pd = lambda; // 8f
+		bg_aff_ptr->pa = lambda_cos_phi >> 4; // 8f
+		bg_aff_ptr->pc = lambda_sin_phi >> 4; // 8f
 
-		bg_aff_ptr->dx = a_x - (M7_RIGHT * lambda); // 8f
-		bg_aff_ptr->dy = (M7_D + z) * lambda; // 8f
+		FIXED zb = (h - M7_TOP) * sin_theta - M7_D * cos_theta; // 12f
+		bg_aff_ptr->dx = a_x + (lambda_cos_phi >> 4) * M7_LEFT - ((lambda_sin_phi * zb) >> 12); // 8f
+		bg_aff_ptr->dy = a_z + (lambda_sin_phi >> 4) * M7_LEFT + ((lambda_cos_phi * zb) >> 12); // 8f
 
 		bg_aff_ptr++;
 	}

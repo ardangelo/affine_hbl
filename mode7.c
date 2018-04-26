@@ -25,14 +25,14 @@ void m7_prep_horizon(m7_level_t *level) {
 	int horz = 0;
 	if (cam->v.y != 0) {
 		horz = (M7_FAR_BG * cam->w.y) - cam->pos.y;
-		horz = M7_TOP - Div(horz * (M7_D + m7_level.camera->focal_offs), M7_FAR_BG * cam->v.y);
+		horz = M7_TOP - Div(horz * M7_D, M7_FAR_BG * cam->v.y);
 		/* horz = M7_TOP - Div(cam->w.y*M7_D, cam->v.y); */
 	} else {
 		/* looking straight down */
 		horz = (cam->w.y > 0) ? INT_MIN : INT_MAX;
 	}
 	
-	level->horizon = 0;//horz;
+	level->horizon = horz;
 }
 
 void m7_rotate(m7_cam_t *cam, int phi, int theta) {
