@@ -88,6 +88,7 @@ void init_map() {
 	m7_level.blocks_width = 24;
 	m7_level.blocks_height = 24;
 	m7_level.texture_height = 1024;
+	m7_level.pixels_per_block = fxdiv(int2fx(m7_level.texture_height), int2fx(m7_level.blocks_height));
 
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs, m7_winh,
@@ -115,12 +116,13 @@ void init_map() {
 }
 
 const FIXED OMEGA = 0x200;
+const FIXED VEL_X =  0x1 << 6;
 const FIXED VEL_Z = -0x1 << 6;
 void input_game(VECTOR *dir) {
 	key_poll();
 
-	/* up / down */
-	dir->y = VEL_Z * key_tri_shoulder();
+	/* strafe */
+	dir->x = VEL_X * key_tri_shoulder();
 
 	/* forwards / backwards */
 	dir->z = VEL_Z * key_tri_vert();
@@ -168,8 +170,8 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		tte_printf("#{es;P}corr %x",
-			m7_level.bgaff[0].pd);
+		tte_printf("#{es;P}x %x",
+			m7_level.camera->pos.x);
 	}
 
 	return 0;

@@ -23,7 +23,7 @@ IWRAM_CODE void m7_hbl() {
 	/* apply shading */
 	static int last_side = -1;
 	if (last_side != bga->pb) {
-		if (bga->pb == 6) {
+		if (bga->pb == 1) {
 			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
 			REG_BG2CNT = m7_level.bgcnt_sky;
 		} else {
@@ -58,7 +58,6 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	u16 *winh_ptr = &level->winh[start_line];
 
 	const FIXED fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
-	const FIXED pixels_per_block = fxdiv(int2fx(level->texture_height), int2fx(level->blocks_height));
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
@@ -123,23 +122,13 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		}
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
-		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
-		int draw_start = -line_height / 2 + M7_RIGHT;
-		if (draw_start < 0) { draw_start = 0; }
-		int draw_end = line_height / 2 + M7_RIGHT;
-		if (draw_end >= SCREEN_WIDTH) { draw_end = SCREEN_WIDTH; }
-
-		/* apply windowing */
-		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
-		winh_ptr++;
-
 		/* build affine matrices */
 		FIXED lambda = fxmul(perp_wall_dist * 2, fov);
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
 
-		bg_aff_ptr->dx = fxmul(lambda, int2fx(M7_LEFT));
+		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), fxmul(a_x, level->pixels_per_block));
 
 		/* calculate angle corrections (angles are .12f) */
 		FIXED correction;
@@ -148,7 +137,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		} else {
 			correction = fxadd(fxmul(perp_wall_dist, ray_y), a_y);
 		}
-		correction = fxmul(correction, pixels_per_block * 4);
+		correction = fxmul(correction, level->pixels_per_block * 4);
 
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
@@ -157,6 +146,21 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		}
 
 		bg_aff_ptr->dy = correction;
+
+		/* calculate windowing */
+		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
+		int a_x_offs = fx2int(fxmul(fxdiv(a_x, lambda), level->pixels_per_block));
+
+		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
+		if (draw_start < 0) { draw_start = 0; }
+		else if (draw_start > M7_RIGHT) { draw_start = M7_RIGHT; };
+		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
+		if (draw_end >= SCREEN_WIDTH) { draw_end = SCREEN_WIDTH; }
+		else if (draw_end < M7_RIGHT) { draw_end = M7_RIGHT; };
+
+		/* apply windowing */
+		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
+		winh_ptr++;
 
 		/* pb and pd aren't used (q_y is implicitly zero) */
 		bg_aff_ptr->pb = side;
