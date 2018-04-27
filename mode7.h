@@ -49,7 +49,7 @@ void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE *aff_arr, u16 *winh_arr
 void m7_prep_horizon(m7_level_t *level);
 
 /* camera functions */
-void m7_rotate(m7_cam_t *cam, int theta, int phi);
+void m7_rotate(m7_cam_t *cam, int theta);
 void m7_translate_local(m7_level_t *level, const VECTOR *dir);
 void m7_translate_level(m7_level_t *level, const VECTOR *dir);
 

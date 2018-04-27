@@ -48,9 +48,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED a_y = cam->pos.y; // 8f
 	FIXED a_z = cam->pos.z; // 8f
 
-	/* sines and cosines of yaw, pitch */
-	FIXED cos_phi   = cam->u.x; // 8f
-	FIXED sin_phi   = cam->u.z; // 8f
+	/* sines and cosines of pitch */
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
 

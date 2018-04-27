@@ -133,7 +133,7 @@ void input_game(VECTOR *dir) {
 
 void camera_update(VECTOR *dir) {
 	/* update camera rotation */
-	m7_rotate(m7_level.camera, m7_level.camera->phi, m7_level.camera->theta);
+	m7_rotate(m7_level.camera, m7_level.camera->theta);
 
 	/* update camera position */
 	m7_translate_local(&m7_level, dir);

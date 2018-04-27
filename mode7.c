@@ -36,34 +36,29 @@ void m7_prep_horizon(m7_level_t *level) {
 	level->horizon = 0;//horz;
 }
 
-void m7_rotate(m7_cam_t *cam, int phi, int theta) {
+void m7_rotate(m7_cam_t *cam, int theta) {
 	/* limited to fixpoint range */
-	phi &= 0xFFFF;
-	phi &= 0xFFFF;
+	theta &= 0xFFFF;
 
-	cam->phi = phi;
 	cam->theta = theta;
 
-	FIXED cf, sf, ct, st;
-	cf = lu_cos(phi) >> 4;
-	sf = lu_sin(phi) >> 4;
-	ct = lu_cos(theta) >> 4;
-	st = lu_sin(theta) >> 4;
+	FIXED ct = lu_cos(theta) >> 4;
+	FIXED st = lu_sin(theta) >> 4;
 
 	/* camera x-axis */
-	cam->u.x = cf;
+	cam->u.x = 1 << 8;
 	cam->u.y = 0;
-	cam->u.z = sf;
+	cam->u.z = 0;
 
 	/* camera y-axis */
-	cam->v.x = (sf * st) >> 8;
+	cam->v.x = 0;
 	cam->v.y = ct;
-	cam->v.z = (-cf * st) >> 8;
+	cam->v.z = -1 * st;
 
 	/* camera z-axis */
-	cam->w.x = (-sf * ct) >> 8;
+	cam->w.x = 0;;
 	cam->w.y = st;
-	cam->w.z = (cf * ct) >> 8;
+	cam->w.z = ct;
 }
 
 void m7_translate_local(m7_level_t *level, const VECTOR *dir) {
