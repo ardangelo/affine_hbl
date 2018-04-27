@@ -142,28 +142,25 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->dx = fxmul(lambda, int2fx(M7_LEFT));
 
 		/* calculate angle corrections (angles are .12f) */
-		FIXED angle_correction = fxdiv(level->texture_height * (level->camera->theta >> 4), TRIG_ANGLE_MAX >> 4);
-
-		/* calculate displacement from position */
-		FIXED position_correction;
+		FIXED correction;
 		if (side == 0) {
-			position_correction = fxadd(a_z, fxmul(perp_wall_dist, ray_z));
+			correction = fxadd(fxmul(perp_wall_dist, ray_z), a_z);
 		} else {
-			position_correction = fxadd(a_y, fxmul(perp_wall_dist, ray_y));
+			correction = fxsub(fxmul(perp_wall_dist, ray_y), a_y);
 		}
-		position_correction = fxmul(position_correction, pixels_per_block);
+		correction = fxmul(correction, pixels_per_block);
 
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
 			((side == 1) && (ray_z < 0))) {
-			position_correction = fxsub(int2fx(level->texture_height - 1), position_correction);
+			correction = fxsub(int2fx(level->texture_height - 1), correction);
 		}
 
-		bg_aff_ptr->dy = fxadd(fxadd(int2fx(h), angle_correction), position_correction);
+		bg_aff_ptr->dy = correction;
 
 		/* pb and pd aren't used (q_y is implicitly zero) */
 		bg_aff_ptr->pb = side;
-		bg_aff_ptr->pd = 0;
+		bg_aff_ptr->pd = correction;
 
 		bg_aff_ptr++;
 	}
