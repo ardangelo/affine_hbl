@@ -23,7 +23,7 @@ IWRAM_CODE void m7_hbl() {
 	/* apply shading */
 	static int last_side = -1;
 	if (last_side != bga->pb) {
-		if (bga->pb == 1) {
+		if (bga->pb == 6) {
 			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
 			REG_BG2CNT = m7_level.bgcnt_sky;
 		} else {
@@ -134,7 +134,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		winh_ptr++;
 
 		/* build affine matrices */
-		FIXED lambda = perp_wall_dist;
+		FIXED lambda = fxmul(perp_wall_dist * 2, fov);
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
@@ -146,9 +146,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (side == 0) {
 			correction = fxadd(fxmul(perp_wall_dist, ray_z), a_z);
 		} else {
-			correction = fxsub(fxmul(perp_wall_dist, ray_y), a_y);
+			correction = fxadd(fxmul(perp_wall_dist, ray_y), a_y);
 		}
-		correction = fxmul(correction, pixels_per_block);
+		correction = fxmul(correction, pixels_per_block * 4);
 
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
