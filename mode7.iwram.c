@@ -108,7 +108,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		/* build affine matrices */
-		FIXED lambda = fxmul(perp_wall_dist, cam->fov);
+		FIXED lambda = fxdiv(fxdiv(perp_wall_dist, cam->fov), level->pixels_per_block);
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
@@ -116,9 +116,9 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), fxmul(a_x, level->pixels_per_block));
 		/* shading (right half of map) */
 		if (side == 0) {
-			bg_aff_ptr->dx -= int2fx(M7_LEFT);
+			bg_aff_ptr->dx -= int2fx(level->texture_height / 2);
 		} else {
-			bg_aff_ptr->dx += int2fx(M7_LEFT - 16);
+			bg_aff_ptr->dx += int2fx(level->texture_height / 2);
 		}
 
 		/* calculate angle corrections (angles are .12f) */
@@ -128,7 +128,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		} else {
 			correction = fxadd(fxmul(perp_wall_dist, ray_y), a_y);
 		}
-		correction = fxmul(correction, level->pixels_per_block * 4);
+		correction = fxmul(correction, level->pixels_per_block);
 
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
@@ -139,7 +139,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->dy = correction;
 
 		/* calculate windowing */
-		int line_height = fx2int(fxmul(fxdiv(int2fx(SCREEN_WIDTH), lambda), cam->fov));
+		int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_height), lambda), cam->fov));
 		int a_x_offs = fx2int(fxmul(fxdiv(a_x, lambda), level->pixels_per_block));
 
 		int draw_start = -line_height + M7_RIGHT - a_x_offs;

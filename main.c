@@ -101,15 +101,17 @@ const int fanroom_blocks[16 * 32] = {
 
 void init_map() {
 	/* layout level */
-	/*
 	m7_level.blocks = (int*)fanroom_blocks;
 	m7_level.blocks_width = 32;
 	m7_level.blocks_height = 16;
-	*/
+
+	/*
 	m7_level.blocks = (int*)columns_blocks;
 	m7_level.blocks_width = 32;
 	m7_level.blocks_height = 32;
+	*/
 
+	m7_level.texture_height = 256; // half the actual height; second half is shaded
 	m7_level.texture_width = 512;
 	m7_level.pixels_per_block = int2fx(m7_level.texture_width / m7_level.blocks_width);
 
