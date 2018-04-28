@@ -29,7 +29,7 @@ gfx/bc1floor.o gfx/bc1floor.h : gfx/bc1floor.png
 	$(CC) $(ASFLAGS) -c gfx/bc1floor.s -o gfx/bc1floor.o
 # Bowser's Castle I sky : normal map, 64x32t, LZ77 compressed.
 gfx/bc1sky.o gfx/bc1sky.h : gfx/bc1sky.png
-	$(GRIT) gfx/bc1sky.png -ogfx/bc1sky -fts -gB4 -mLs -mR4 -ma 128 -p! -Zl
+	$(GRIT) gfx/bc1sky.png -ogfx/bc1sky -fts -gB4 -mLs -mR4 -p! -Zl
 	$(CC) $(ASFLAGS) -c gfx/bc1sky.s -o gfx/bc1sky.o
 # Menu borders, LZ77 compressed.
 gfx/border.o gfx/border.h : gfx/border.png

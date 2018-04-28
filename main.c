@@ -10,16 +10,12 @@
 #include "gfx/bgpal.h"
 
 /* block mappings */
-#define M7_CBB 0
-#define SKY_SBB 22
+#define SKY_CBB 0
+#define SKY_SBB 16
+#define FLOOR_CBB 1
+#define FLOOR_MIP_SBB 20
 #define FLOOR_SBB 24
-#define TTE_CBB 1
-#define TTE_SBB 20
 #define M7_PRIO 3
-
-/* game globals */
-typedef enum { CTRL_NORMAL, CTRL_ZOOMED } control_state_t;
-control_state_t g_control_state;
 
 /* obj globals */
 POINT pt_crosshair;
@@ -56,13 +52,13 @@ void camera_update();
 void init_map() {
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs,
-		BG_CBB(M7_CBB) | BG_SBB(SKY_SBB) | BG_REG_64x32 | BG_PRIO(M7_PRIO),
-		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
+		BG_CBB(SKY_CBB) | BG_SBB(SKY_SBB) | BG_REG_64x32 | BG_PRIO(M7_PRIO),
+		BG_CBB(FLOOR_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
 	*(m7_level.camera) = m7_cam_default;
 
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
-	LZ77UnCompVram(bc1floorTiles, tile_mem[M7_CBB]);
+	LZ77UnCompVram(bc1floorTiles, tile_mem[FLOOR_CBB]);
 	LZ77UnCompVram(bc1floorMap, se_mem[FLOOR_SBB]);
 
 	/* setup orange fade */
@@ -70,13 +66,16 @@ void init_map() {
 	pal_bg_mem[0] = CLR_ORANGE;
 
 	/* extract sky bg */
-	LZ77UnCompVram(bc1skyTiles, &tile_mem[M7_CBB][128]);
+	LZ77UnCompVram(bc1skyTiles, &tile_mem[SKY_CBB]);
 	LZ77UnCompVram(bc1skyMap, se_mem[SKY_SBB]);
 
 	// Registers
-	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
+	REG_DISPCNT = DCNT_MODE1 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
 }
 
+void init_mip() {
+	
+}
 
 void init_cross() {
 	TILE cross = {{
@@ -129,12 +128,10 @@ void camera_update(VECTOR *dir) {
 
 int main() {
 	init_map();
+	init_mip();
 
 	/* hud */
 	init_cross();
-	tte_init_chr4c_b4_default(0, BG_CBB(TTE_CBB) | BG_SBB(TTE_SBB));
-	tte_init_con();
-	tte_set_margins(8, 8, 232, 40);
 
 	/* irqs */
 	irq_init(NULL);
@@ -163,10 +160,6 @@ int main() {
 
 		/* update affine matrices */
 		m7_prep_affines(&m7_level);
-
-		/* update hud */
-		FIXED z = (m7_cam.pos.z >> 8) + pt_crosshair.y;
-		tte_printf("#{es;P}z %u", z);
 	}
 
 	return 0;
