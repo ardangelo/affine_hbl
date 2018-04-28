@@ -25,13 +25,14 @@ typedef struct _m7_cam_t {
 	VECTOR u; /* local x-axis */
 	VECTOR v; /* local y-axis */
 	VECTOR w; /* local z-axis */
+
+	FIXED fov;
 } m7_cam_t;
 
 typedef struct _m7_level_t {
 	m7_cam_t *camera;
 	BG_AFFINE *bgaff; /* affine parameter array */
 	u16 *winh; /* window 0 widths */
-	int horizon; /* horizon scanline */
 	u16 bgcnt_sky; /* BGxCNT for sky */
 	u16 bgcnt_floor; /* BGxCNT for floor */
 
@@ -46,7 +47,6 @@ extern m7_level_t m7_level;
 
 /* level functions */
 void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE *aff_arr, u16 *winh_arr, u16 skycnt, u16 floorcnt);
-void m7_prep_horizon(m7_level_t *level);
 
 /* camera functions */
 void m7_rotate(m7_cam_t *cam, int theta);

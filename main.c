@@ -96,6 +96,8 @@ void init_map() {
 		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
 	*(m7_level.camera) = m7_cam_default;
 
+	m7_level.camera->fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
+
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
 	LZ77UnCompVram(bc1floorTiles, tile_mem[M7_CBB]);
@@ -146,7 +148,6 @@ void camera_update(VECTOR *dir) {
 
 int main() {
 	init_map();
-	m7_level.horizon = 0;
 
 	/* hud */
 	tte_init_chr4c_b4_default(0, BG_CBB(TTE_CBB) | BG_SBB(TTE_SBB));
@@ -170,8 +171,8 @@ int main() {
 		m7_prep_affines(&m7_level);
 
 		/* update hud */
-		tte_printf("#{es;P}x %x",
-			m7_level.camera->pos.x);
+		tte_printf("#{es;P}x %x fov %x",
+			m7_level.camera->pos.x, m7_level.camera->fov);
 	}
 
 	return 0;

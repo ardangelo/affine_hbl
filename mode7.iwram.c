@@ -2,16 +2,22 @@
 
 #include "mode7.h"
 
+#define FSH 8
+#define FSC (1 << FSH)
+#define FSC_F ((float)FSC)
+
+#define fx2int(fx) (fx/FSC)
+#define fx2float(fx) (fx/FSC_F)
+#define fxadd(fa,fb) (fa + fb)
+#define fxsub(fa, fb) (fa - fb)
+#define fxmul(fa, fb) ((fa*fb)>>FSH)
+#define fxdiv(fa, fb) (((fa)*FSC)/(fb))
+
 #define TRIG_ANGLE_MAX 0xFFFF
 
 IWRAM_CODE void m7_hbl() {
 	int vc = REG_VCOUNT;
-	int horz = m7_level.horizon;
 
-	if (!IN_RANGE(vc, horz, SCREEN_HEIGHT)) {
-		return;
-	}
-	
 	/* apply affine */
 	BG_AFFINE *bga = &m7_level.bgaff[vc + 1];
 	REG_BG_AFFINE[2] = *bga;
@@ -34,13 +40,8 @@ IWRAM_CODE void m7_hbl() {
 	last_side = bga->pb;
 }
 
+static const int start_line = 0;
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
-	if (level->horizon >= SCREEN_HEIGHT) {
-		return;
-	}
-
-	int start_line = (level->horizon >= 0) ? level->horizon : 0;
-
 	m7_cam_t *cam = level->camera;
 
 	/* location vector */
@@ -55,15 +56,14 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
 	u16 *winh_ptr = &level->winh[start_line];
 
-	const FIXED fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
 	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
 		/* ray components in world space */
-		FIXED ray_y = fxadd(sin_theta, fxmul(fxmul(fov, cos_theta), x_c));
+		FIXED ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), x_c));
 		if (ray_y == 0) { ray_y = 1; }
-		FIXED ray_z = fxsub(cos_theta, fxmul(fxmul(fov, sin_theta), x_c));
+		FIXED ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), x_c));
 		if (ray_z == 0) { ray_z = 1; }
 
 		/* map coordinates */
@@ -121,7 +121,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		/* build affine matrices */
-		FIXED lambda = fxmul(perp_wall_dist * 2, fov);
+		FIXED lambda = fxmul(perp_wall_dist * 2, cam->fov);
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
@@ -146,16 +146,13 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->dy = correction;
 
 		/* calculate windowing */
-		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), perp_wall_dist));
+		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), lambda));
 		int a_x_offs = fx2int(fxmul(fxdiv(a_x, lambda), level->pixels_per_block));
 
 		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
-		if (draw_start < 0) { draw_start = 0; }
-		else if (draw_start > M7_RIGHT) { draw_start = M7_RIGHT; };
+		draw_start = CLAMP(draw_start, 0, M7_RIGHT);
 		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
-		if (draw_end >= SCREEN_WIDTH) { draw_end = SCREEN_WIDTH; }
-		else if (draw_end < M7_RIGHT) { draw_end = M7_RIGHT; };
-
+		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH);
 		/* apply windowing */
 		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 		winh_ptr++;
