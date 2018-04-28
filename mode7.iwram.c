@@ -25,21 +25,6 @@ IWRAM_CODE void m7_hbl() {
 	/* apply window */
 	REG_WIN0H = m7_level.winh[vc + 1];
 	REG_WIN0V = WIN_BUILD(SCREEN_HEIGHT, 0);
-
-	/* apply shading */
-	static int last_side = -1;
-	/*
-	if (last_side != bga->pb) {
-		if (bga->pb == 1) {
-			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
-			REG_BG2CNT = m7_level.bgcnt_sky;
-		} else {
-			BFN_SET(REG_DISPCNT, DCNT_MODE1, DCNT_MODE);
-			REG_BG2CNT = m7_level.bgcnt_floor;
-		}
-	}
-	*/
-	last_side = bga->pb;
 }
 
 static const int start_line = 0;
@@ -129,6 +114,12 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->pa = lambda;
 
 		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), fxmul(a_x, level->pixels_per_block));
+		/* shading (right half of map) */
+		if (side == 0) {
+			bg_aff_ptr->dx -= int2fx(M7_LEFT);
+		} else {
+			bg_aff_ptr->dx += int2fx(M7_LEFT - 16);
+		}
 
 		/* calculate angle corrections (angles are .12f) */
 		FIXED correction;
@@ -148,12 +139,12 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		bg_aff_ptr->dy = correction;
 
 		/* calculate windowing */
-		int line_height = fx2int(fxdiv(int2fx(SCREEN_WIDTH), lambda));
+		int line_height = fx2int(fxmul(fxdiv(int2fx(SCREEN_WIDTH), lambda), cam->fov));
 		int a_x_offs = fx2int(fxmul(fxdiv(a_x, lambda), level->pixels_per_block));
 
-		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
+		int draw_start = -line_height + M7_RIGHT - a_x_offs;
 		draw_start = CLAMP(draw_start, 0, M7_RIGHT);
-		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
+		int draw_end = line_height + M7_RIGHT - a_x_offs;
 		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
 
 		/* apply windowing */
