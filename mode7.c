@@ -3,11 +3,10 @@
 
 #include "mode7.h"
 
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 winh_arr[], u16 skycnt, u16 floorcnt) {
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 winh_arr[], u16 floorcnt) {
 	level->camera = cam;
 	level->bgaff = bgaff;
 	level->winh = winh_arr;
-	level->bgcnt_sky = skycnt;
 	level->bgcnt_floor = floorcnt;
 
 	REG_BG2CNT = floorcnt;

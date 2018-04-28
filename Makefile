@@ -23,18 +23,10 @@ all: $(ROMNAME).gba
 
 # compile the background resources
 
-# Bowser's Castle I floor : affine map, 128x128t, LZ77 compressed
-gfx/bc1floor.o gfx/bc1floor.h : gfx/bc1floor.png
-	$(GRIT) gfx/bc1floor.png -ogfx/bc1floor -fts -gB8 -mRa -mLa -p! -Zl
-	$(CC) $(ASFLAGS) -c gfx/bc1floor.s -o gfx/bc1floor.o
-# Bowser's Castle I sky : normal map, 64x32t, LZ77 compressed.
-gfx/bc1sky.o gfx/bc1sky.h : gfx/bc1sky.png
-	$(GRIT) gfx/bc1sky.png -ogfx/bc1sky -fts -gB4 -mLs -mR4 -ma 128 -p! -Zl
-	$(CC) $(ASFLAGS) -c gfx/bc1sky.s -o gfx/bc1sky.o
-# Menu borders, LZ77 compressed.
-gfx/border.o gfx/border.h : gfx/border.png
-	$(GRIT) gfx/border.png -ogfx/border -fts -gt -gB4 -gzl -p!
-	$(CC) $(ASFLAGS) -c gfx/border.s -o gfx/border.o
+# Fan room floor : affine map, 64x64t, LZ77 compressed
+gfx/fanroom.o gfx/fanroom.h : gfx/fanroom.png
+	$(GRIT) gfx/fanroom.png -ogfx/fanroom -fts -gB8 -mRa -mLa -p! -Zl
+	$(CC) $(ASFLAGS) -c gfx/fanroom.s -o gfx/fanroom.o
 # Background palette, LZ77 compressed.
 gfx/bgpal.o gfx/bgpal.h : gfx/bgpal.png
 	$(GRIT) gfx/bgpal.png -ogfx/bgpal -fts -gB8 -g! -s bg -Zl
@@ -55,7 +47,7 @@ gfx/objpal.s gfx/objpal.h : gfx/objpal.png
 	$(GRIT) gfx/objpal.png -ogfx/objpal -fts -gB8 -g! -s obj -Zl
 	$(CC) $(ASFLAGS) -c gfx/objpal.s -o gfx/objpal.o
 
-GFX_ASM := gfx/bc1floor.s gfx/bc1sky.s gfx/border.s gfx/bgpal.s
+GFX_ASM := gfx/fanroom.s gfx/bgpal.s
 GFX_ASM += gfx/karts.s gfx/thwomp.s gfx/objpal.s
 GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)

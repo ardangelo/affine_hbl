@@ -28,6 +28,7 @@ IWRAM_CODE void m7_hbl() {
 
 	/* apply shading */
 	static int last_side = -1;
+	/*
 	if (last_side != bga->pb) {
 		if (bga->pb == 1) {
 			BFN_SET(REG_DISPCNT, DCNT_MODE0, DCNT_MODE);
@@ -37,6 +38,7 @@ IWRAM_CODE void m7_hbl() {
 			REG_BG2CNT = m7_level.bgcnt_floor;
 		}
 	}
+	*/
 	last_side = bga->pb;
 }
 
@@ -121,7 +123,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		/* build affine matrices */
-		FIXED lambda = fxmul(perp_wall_dist * 2, cam->fov);
+		FIXED lambda = fxmul(perp_wall_dist, cam->fov);
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
@@ -140,7 +142,7 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
 			((side == 1) && (ray_z < 0))) {
-			correction = fxsub(int2fx(level->texture_height - 1), correction);
+			correction = fxsub(int2fx(level->texture_width - 1), correction);
 		}
 
 		bg_aff_ptr->dy = correction;
@@ -152,7 +154,8 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
 		draw_start = CLAMP(draw_start, 0, M7_RIGHT);
 		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
-		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH);
+		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
+
 		/* apply windowing */
 		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 		winh_ptr++;

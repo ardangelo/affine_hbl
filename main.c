@@ -5,8 +5,7 @@
 
 #include "mode7.h"
 
-#include "gfx/bc1floor.h"
-#include "gfx/bc1sky.h"
+#include "gfx/fanroom.h"
 #include "gfx/bgpal.h"
 
 #define DEBUG(fmt, ...)
@@ -25,7 +24,6 @@ char *dbg_str;
 
 /* block mappings */
 #define M7_CBB 0
-#define SKY_SBB 22
 #define FLOOR_SBB 24
 #define TTE_CBB 1
 #define TTE_SBB 20
@@ -38,8 +36,8 @@ u16 m7_winh[SCREEN_HEIGHT + 1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x0, 12 << FIX_SHIFT, 12 << FIX_SHIFT }, /* pos */
-	0xC000, /* theta */
+	{ 0x0, 2 << FIX_SHIFT, 2 << FIX_SHIFT }, /* pos */
+	0x0000, /* theta */
 	0x0, /* phi */
 	{1 << FIX_SHIFT, 0, 0}, /* u */
 	{0, 1 << FIX_SHIFT, 0}, /* v */
@@ -55,61 +53,48 @@ void camera_update();
 
 /* implementations */
 
-const int blocks[24 * 24] = {
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,0,0,0,5,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+const int blocks[16 * 32] = {
+  1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,2, 3,3,3,3,3,3,3,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,2,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,2,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,2,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,2,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,2,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,2,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
+  1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1
 };
 
 void init_map() {
 	/* layout level */
 	m7_level.blocks = (int*)blocks;
-	m7_level.blocks_width = 24;
-	m7_level.blocks_height = 24;
-	m7_level.texture_height = 1024;
-	m7_level.pixels_per_block = fxdiv(int2fx(m7_level.texture_height), int2fx(m7_level.blocks_height));
+	m7_level.blocks_width = 32;
+	m7_level.blocks_height = 16;
+	m7_level.texture_width = 512;
+	m7_level.pixels_per_block = int2fx(m7_level.texture_width / m7_level.blocks_width);
 
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, m7_aff_arrs, m7_winh,
-		BG_CBB(M7_CBB) | BG_SBB(SKY_SBB) | BG_REG_64x32 | BG_PRIO(M7_PRIO),
-		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
+		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_64x64 | BG_WRAP | BG_PRIO(M7_PRIO));
 	*(m7_level.camera) = m7_cam_default;
 
 	m7_level.camera->fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
 
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
-	LZ77UnCompVram(bc1floorTiles, tile_mem[M7_CBB]);
-	LZ77UnCompVram(bc1floorMap, se_mem[FLOOR_SBB]);
+	LZ77UnCompVram(fanroomTiles, tile_mem[M7_CBB]);
+	LZ77UnCompVram(fanroomMap, se_mem[FLOOR_SBB]);
 
 	/* setup orange fade */
 	REG_BLDCNT = BLD_BUILD(BLD_BG2, BLD_BACKDROP, 1);
 	pal_bg_mem[0] = CLR_ORANGE;
-
-	/* extract sky bg */
-	LZ77UnCompVram(bc1skyTiles, &tile_mem[M7_CBB][128]);
-	LZ77UnCompVram(bc1skyMap, se_mem[SKY_SBB]);
 
 	/* registers */
 	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
@@ -117,9 +102,9 @@ void init_map() {
 	REG_WINOUT = WINOUT_BUILD(WIN_BG0, 0);
 }
 
-const FIXED OMEGA = 0x200;
-const FIXED VEL_X =  0x1 << 6;
-const FIXED VEL_Z = -0x1 << 6;
+const FIXED OMEGA =  0x400;
+const FIXED VEL_X =  0x1 << 8;
+const FIXED VEL_Z = -0x1 << 8;
 void input_game(VECTOR *dir) {
 	key_poll();
 
