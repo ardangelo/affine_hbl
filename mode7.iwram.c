@@ -154,9 +154,6 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
 		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
 
-		/* apply windowing */
-		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
-
 		/* pb and pd aren't used (q_y is implicitly zero) */
 		bg_aff_ptr->pb = lambda;
 		bg_aff_ptr->pd = 0;
@@ -171,21 +168,36 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 			FIXED yb = (h - M7_TOP) * sin_theta - M7_D * cos_theta;
 			if (yb == 0) { yb = 1; }
-			FIXED lam = fxdiv((a_z - int2fx(17)) * PIX_PER_BLOCK, yb);
+			FIXED lam = fxdiv((a_z - float2fx(16.5)) * PIX_PER_BLOCK, yb);
 
 			wall_aff_ptr->pa = lam;
 
 			FIXED zb = (h - M7_TOP) * cos_theta + M7_D * sin_theta;
 			wall_aff_ptr->dx = fxadd(a_x * PIX_PER_BLOCK, lam * M7_LEFT);
-			wall_aff_ptr->dx += int2fx(128);
 			wall_aff_ptr->dy = fxadd(a_y * PIX_PER_BLOCK, fxmul(lam, zb));
-			wall_aff_ptr->dy += int2fx(128);
+
+			/* update windowing */
+			if ((in_range(wall_aff_ptr->dy, int2fx(0), int2fx(40)) ||
+				 in_range(wall_aff_ptr->dy, int2fx(128), int2fx(256)))) {
+				line_height = fx2int(fxmul(fxdiv(int2fx(128 * 2), lam), cam->fov));
+				a_x_offs = fx2int(fxdiv((a_x - (3 * level->a_x_range / 4)), lam) * PIX_PER_BLOCK);
+
+				int draw_start_p = -line_height / 2 + M7_RIGHT - a_x_offs;
+				draw_start_p = CLAMP(draw_start_p, 0, M7_RIGHT);
+				draw_start = MIN(draw_start, draw_start_p);
+				int draw_end_p = line_height / 2 + M7_RIGHT - a_x_offs;
+				draw_end_p = CLAMP(draw_end_p, M7_RIGHT + 1, SCREEN_WIDTH + 1);
+				draw_end = MAX(draw_end, draw_end_p);
+			}
 		} else {
 			if (wall_enabled) {
 				REG_DISPCNT ^= DCNT_BG2;
 				wall_enabled = 0;
 			}
 		}
+
+		/* apply windowing */
+		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 
 		bg_aff_ptr++;
 		wall_aff_ptr++;

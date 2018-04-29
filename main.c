@@ -95,7 +95,7 @@ void init_map() {
 	/* init mode 7 */
 	m7_init(&m7_level, &m7_cam, bgaff_arr, wallaff_arr, m7_winh,
 		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(M7_PRIO),
-		BG_CBB(WALL1_CBB) | BG_SBB(WALL1_SBB) | BG_AFF_64x64 | BG_PRIO(WALL1_PRIO));
+		BG_CBB(WALL1_CBB) | BG_SBB(WALL1_SBB) | BG_AFF_32x32 | BG_PRIO(WALL1_PRIO));
 	*(m7_level.camera) = m7_cam_default;
 
 	m7_level.camera->fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
