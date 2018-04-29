@@ -6,9 +6,10 @@
 #include "mode7.h"
 
 #include "gfx/fanroom.h"
+#include "gfx/wall1.h"
 #include "gfx/bgpal.h"
 
-#define TTE_ENABLED
+// #define TTE_ENABLED
 
 #define DEBUG(fmt, ...)
 #define DEBUGFMT(fmt, ...)
@@ -27,18 +28,24 @@ char *dbg_str;
 /* block mappings */
 #define M7_CBB 0
 #define FLOOR_SBB 24
-#define TTE_CBB 1
-#define TTE_SBB 20
-#define M7_PRIO 3
+#define M7_PRIO 2
+
+#define WALL1_CBB 1
+#define WALL1_SBB 20
+#define WALL1_PRIO 1
+
+#define TTE_CBB 2
+#define TTE_SBB 18
 
 /* m7 globals */
 m7_cam_t m7_cam;
-BG_AFFINE m7_aff_arrs[SCREEN_HEIGHT+1];
 u16 m7_winh[SCREEN_HEIGHT + 1];
+BG_AFFINE bgaff_arr[SCREEN_HEIGHT+1];
+BG_AFFINE wallaff_arr[SCREEN_HEIGHT+1];
 m7_level_t m7_level;
 
 static const m7_cam_t m7_cam_default = {
-	{ 0x0, 2 << FIX_SHIFT, 2 << FIX_SHIFT }, /* pos */
+	{ 8 << FIX_SHIFT, 2 << FIX_SHIFT, 2 << FIX_SHIFT }, /* pos */
 	0x0000, /* theta */
 	0x0, /* phi */
 	{1 << FIX_SHIFT, 0, 0}, /* u */
@@ -86,8 +93,9 @@ void init_map() {
 	m7_level.a_x_range = int2fx(m7_level.texture_width / m7_level.blocks_height);
 
 	/* init mode 7 */
-	m7_init(&m7_level, &m7_cam, m7_aff_arrs, m7_winh,
-		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_WRAP | BG_PRIO(M7_PRIO));
+	m7_init(&m7_level, &m7_cam, bgaff_arr, wallaff_arr, m7_winh,
+		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(M7_PRIO),
+		BG_CBB(WALL1_CBB) | BG_SBB(WALL1_SBB) | BG_AFF_64x64 | BG_PRIO(WALL1_PRIO));
 	*(m7_level.camera) = m7_cam_default;
 
 	m7_level.camera->fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
@@ -97,14 +105,20 @@ void init_map() {
 	LZ77UnCompVram(fanroomTiles, tile_mem[M7_CBB]);
 	LZ77UnCompVram(fanroomMap, se_mem[FLOOR_SBB]);
 
-	/* setup orange fade */
-	REG_BLDCNT = BLD_BUILD(BLD_BG2, BLD_BACKDROP, 1);
-	pal_bg_mem[0] = CLR_ORANGE;
+	/* extract wall 1 */
+	LZ77UnCompVram(wall1Tiles, tile_mem[WALL1_CBB]);
+	LZ77UnCompVram(wall1Map, se_mem[WALL1_SBB]);
+
+	/* setup shadow fade */
+	REG_BLDCNT = BLD_BUILD(BLD_BG2 | BLD_BG3, BLD_BACKDROP, 3);
+	REG_WININ = WININ_BUILD(WIN_BG2 | WIN_BG3 | WIN_BLD, 0);
+	pal_bg_mem[0] = CLR_GRAY;
 
 	/* registers */
-	REG_DISPCNT = DCNT_MODE1 | DCNT_BG0 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
-	REG_WININ = WININ_BUILD(WIN_BG2, 0);
-	REG_WINOUT = WINOUT_BUILD(WIN_BG0, 0);
+	REG_DISPCNT = DCNT_MODE2 | DCNT_BG2 | DCNT_BG3 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
+#ifdef TTE_ENABLED
+	REG_DISPCNT |= DCNT_BG0;
+#endif
 }
 
 const FIXED OMEGA =  0x400;

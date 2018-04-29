@@ -21,15 +21,19 @@ IWRAM_CODE void m7_hbl() {
 	int vc = REG_VCOUNT;
 
 	/* apply affine */
+	BG_AFFINE *wa = &m7_level.wallaff[vc + 1];
+	REG_BG_AFFINE[2] = *wa;
 	BG_AFFINE *bga = &m7_level.bgaff[vc + 1];
-	REG_BG_AFFINE[2] = *bga;
+	REG_BG_AFFINE[3] = *bga;
 
-	/* apply window */
+	/* shading */
+	u32 ey = bga->pb >> 7;
+	if (ey > 16) { ey = 16; }
+	REG_BLDY = BLDY_BUILD(ey);
 	REG_WIN0H = m7_level.winh[vc + 1];
-	REG_WIN0V = WIN_BUILD(SCREEN_HEIGHT, 0);
+	REG_WIN0V = SCREEN_HEIGHT;
 }
 
-static const int start_line = 0;
 IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	m7_cam_t *cam = level->camera;
 
@@ -42,10 +46,11 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
 
-	BG_AFFINE *bg_aff_ptr = &level->bgaff[start_line];
-	u16 *winh_ptr = &level->winh[start_line];
+	BG_AFFINE *bg_aff_ptr = &level->bgaff[0];
+	BG_AFFINE *wall_aff_ptr = &level->wallaff[0];
+	u16 *winh_ptr = &level->winh[0];
 
-	for (int h = start_line; h < SCREEN_HEIGHT; h++) {
+	for (int h = 0; h < SCREEN_HEIGHT; h++) {
 		/* ray intersect in camera plane */
 		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
@@ -151,14 +156,42 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 
 		/* apply windowing */
 		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
-		winh_ptr++;
 
 		/* pb and pd aren't used (q_y is implicitly zero) */
-		bg_aff_ptr->pb = side;
-		bg_aff_ptr->pd = correction;
+		bg_aff_ptr->pb = lambda;
+		bg_aff_ptr->pd = 0;
+
+		/* calculate wall affine */
+		static int wall_enabled = 1;
+		if (a_z < int2fx(17)) {
+			if (!wall_enabled) {
+				REG_DISPCNT ^= DCNT_BG2;
+				wall_enabled = 1;
+			}
+
+			FIXED yb = (h - M7_TOP) * sin_theta - M7_D * cos_theta;
+			if (yb == 0) { yb = 1; }
+			FIXED lam = fxdiv((a_z - int2fx(17)) * PIX_PER_BLOCK, yb);
+
+			wall_aff_ptr->pa = lam;
+
+			FIXED zb = (h - M7_TOP) * cos_theta + M7_D * sin_theta;
+			wall_aff_ptr->dx = fxadd(a_x * PIX_PER_BLOCK, lam * M7_LEFT);
+			wall_aff_ptr->dx += int2fx(128);
+			wall_aff_ptr->dy = fxadd(a_y * PIX_PER_BLOCK, fxmul(lam, zb));
+			wall_aff_ptr->dy += int2fx(128);
+		} else {
+			if (wall_enabled) {
+				REG_DISPCNT ^= DCNT_BG2;
+				wall_enabled = 0;
+			}
+		}
 
 		bg_aff_ptr++;
+		wall_aff_ptr++;
+		winh_ptr++;
 	}
 	level->bgaff[SCREEN_HEIGHT] = level->bgaff[0];
+	level->wallaff[SCREEN_HEIGHT] = level->wallaff[0];
 	level->winh[SCREEN_HEIGHT] = level->winh[0];
 }

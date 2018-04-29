@@ -3,14 +3,19 @@
 
 #include "mode7.h"
 
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 winh_arr[], u16 floorcnt) {
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], BG_AFFINE wallaff[], u16 *winh_arr, u16 floorcnt, u16 wallcnt) {
 	level->camera = cam;
 	level->bgaff = bgaff;
+	level->wallaff = wallaff;
 	level->winh = winh_arr;
-	level->bgcnt_floor = floorcnt;
+	level->floorcnt = floorcnt;
+	level->wallcnt = wallcnt;
 
-	REG_BG2CNT = floorcnt;
+	REG_BG2CNT = wallcnt;
 	REG_BG_AFFINE[2] = bg_aff_default;
+
+	REG_BG3CNT = floorcnt;
+	REG_BG_AFFINE[3] = bg_aff_default;
 }
 
 void m7_rotate(m7_cam_t *cam, int theta) {

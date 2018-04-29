@@ -265,7 +265,7 @@
 #define BLD_BOT(n)		((n)<<BLD_BOT_SHIFT)
 
 #define BLD_BUILD(top, bot, mode)		\
-	( (((bot)&63)<<8) | (((mode)&3)<<6) | ((top)&63) )
+	( (((bot)&63)<<8) | (((mode)&63)<<6) | ((top)&63) )
 
 //\}
 
