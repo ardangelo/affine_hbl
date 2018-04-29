@@ -2,6 +2,8 @@
 
 #include "mode7.h"
 
+#define PIX_PER_BLOCK 16
+
 #define FSH 8
 #define FSC (1 << FSH)
 #define FSC_F ((float)FSC)
@@ -108,17 +110,17 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
 
 		/* build affine matrices */
-		FIXED lambda = fxdiv(fxdiv(perp_wall_dist, cam->fov), level->pixels_per_block);
+		FIXED lambda = fxdiv(perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
 
 		/* scaling */
 		bg_aff_ptr->pa = lambda;
 
-		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), fxmul(a_x, level->pixels_per_block));
-		/* shading (right half of map) */
-		if (side == 0) {
-			bg_aff_ptr->dx -= int2fx(level->texture_height / 2);
-		} else {
-			bg_aff_ptr->dx += int2fx(level->texture_height / 2);
+		/* camera x-position */
+		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), a_x * PIX_PER_BLOCK);
+
+		/* move side to correct texture source */
+		if (side == 1) {
+			bg_aff_ptr->dx += int2fx(level->texture_width);
 		}
 
 		/* calculate angle corrections (angles are .12f) */
@@ -128,23 +130,23 @@ IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
 		} else {
 			correction = fxadd(fxmul(perp_wall_dist, ray_y), a_y);
 		}
-		correction = fxmul(correction, level->pixels_per_block);
+		correction *= PIX_PER_BLOCK;
 
 		/* wrap texture for ceiling */
 		if (((side == 0) && (ray_y > 0)) ||
 			((side == 1) && (ray_z < 0))) {
-			correction = fxsub(int2fx(level->texture_width - 1), correction);
+			correction = fxsub(int2fx(level->texture_height), correction);
 		}
 
 		bg_aff_ptr->dy = correction;
 
 		/* calculate windowing */
-		int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_height), lambda), cam->fov));
-		int a_x_offs = fx2int(fxmul(fxdiv(a_x, lambda), level->pixels_per_block));
+		int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_width * 2), lambda), cam->fov));
+		int a_x_offs = fx2int(fxdiv((a_x - (level->a_x_range / 2)), lambda) * PIX_PER_BLOCK);
 
-		int draw_start = -line_height + M7_RIGHT - a_x_offs;
+		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
 		draw_start = CLAMP(draw_start, 0, M7_RIGHT);
-		int draw_end = line_height + M7_RIGHT - a_x_offs;
+		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
 		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
 
 		/* apply windowing */

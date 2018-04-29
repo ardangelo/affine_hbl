@@ -47,7 +47,7 @@ void m7_translate_local(m7_level_t *level, const VECTOR *dir) {
 	pos.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
 
 	/* update x */
-	if ((int2fx(-8) <= pos.x) && (pos.x <= int2fx(8))) {
+	if ((0 <= pos.x) && (pos.x <= level->a_x_range)) {
 		cam->pos.x = pos.x;
 	}
 
