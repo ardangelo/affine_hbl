@@ -40,6 +40,7 @@ typedef struct _m7_level_t {
 	int blocks_width, blocks_height;
 	FIXED pixels_per_block, a_x_range;
 	int texture_width, texture_height;
+	int *window_extents;
 } m7_level_t;
 
 /* accessible both from main and iwram */

@@ -41,7 +41,7 @@ typedef struct {
 IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr);
 IWRAM_CODE static void raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr);
 IWRAM_CODE static void compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
-IWRAM_CODE static void compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr);
+IWRAM_CODE static void compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *winh_ptr);
 
 /* public function implementations */
 
@@ -99,6 +99,7 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 		for (int bg = 0; bg < 2; bg++) {
 			raycast(levels[bg], &rin, &routs[bg]);
 
+			/* compute the affines / windows only if raycast finds a renderable wall */
 			if (!routs[bg].enabled) {
 				levels[bg]->bgaff[h].pa = 0;
 				levels[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
@@ -106,7 +107,13 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 				lambda = fxdiv(routs[bg].perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
 
 				compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
-				compute_windows(levels[bg], lambda, &levels[bg]->winh[h]);
+
+				/* extent will correctly size window (texture can be transparent) */
+				int *extent = NULL; 
+				if (levels[bg]->window_extents != NULL) {
+					extent = &levels[bg]->window_extents[routs[bg].map_y * 2];
+				}
+				compute_windows(levels[bg], extent, lambda, &levels[bg]->winh[h]);
 			}
 
 			for (int i = 1; i < RAYCAST_FREQ; i++) {
@@ -282,21 +289,32 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 }
 
 IWRAM_CODE static void
-compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr) {
-	int line_height = fx2int(
-		fxmul(
-			fxdiv(int2fx(level->texture_width * 2), lambda),
-			level->camera->fov));
-	int a_x_offs = fx2int(
+compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *winh_ptr) {
+	FIXED a_x_offs = 0;
+	FIXED height_factor = 0;
+	if (extent == NULL) {
+		a_x_offs = level->a_x_range;
+		height_factor = int2fx(level->texture_width);
+	} else {
+		a_x_offs = level->a_x_range + int2fx(extent[0]);
+		height_factor = int2fx((extent[1] - extent[0]) * PIX_PER_BLOCK);
+	}
+
+	int win_x_offs = fx2int(
 		fxdiv(
-			level->camera->pos.x - (level->a_x_range / 2),
+			level->camera->pos.x - a_x_offs / 2,
 			lambda)
 		* PIX_PER_BLOCK);
 
-	int draw_start = (-line_height) / 2 + M7_RIGHT - a_x_offs + 1;
+	int line_height = fx2int(
+		fxmul(
+			fxdiv(height_factor * 2, lambda),
+			level->camera->fov));
+
+	int draw_start = (-line_height) / 2 + M7_RIGHT - win_x_offs + 1;
 	draw_start = CLAMP(draw_start, 0, M7_RIGHT);
 
-	int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
+	int draw_end = line_height / 2 + M7_RIGHT - win_x_offs;
 	draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
 
 	*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);

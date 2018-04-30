@@ -95,10 +95,18 @@ const int fanroom_wall_blocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1
 };
 
+int wall_extents[16 * 2] = {
+	0,16, 8,16, 8,16, 8,16, 0,16, 0,16, 0,16, 0,16,
+	8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16
+};
+
 void init_map() {
 	/* layout level */
 	floor_level.blocks = (int*)fanroom_floor_blocks;
 	wall_level.blocks = (int*)fanroom_wall_blocks;
+
+	floor_level.window_extents = NULL;
+	wall_level.window_extents = wall_extents;
 
 	floor_level.blocks_width = 32; floor_level.blocks_height = 16;
 	wall_level.blocks_width = 32; wall_level.blocks_height = 16;
