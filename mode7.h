@@ -54,7 +54,7 @@ void m7_translate_local(m7_level_t *level, const VECTOR *dir);
 void m7_translate_level(m7_level_t *level, const VECTOR *dir);
 
 /* iwram code */
-IWRAM_CODE void m7_prep_affines(m7_level_t *level);
+IWRAM_CODE void m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3);
 IWRAM_CODE void m7_hbl();
 
 #endif

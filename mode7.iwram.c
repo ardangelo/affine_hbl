@@ -29,7 +29,7 @@ typedef struct {
 } raycast_input_t;
 
 typedef struct {
-	int side;
+	enum {N_SIDE, S_SIDE, E_SIDE, W_SIDE} side;
 	FIXED perp_wall_dist;
 	FIXED dist_y, dist_z;
 	int map_y, map_z;
@@ -58,37 +58,43 @@ m7_hbl() {
 	REG_BLDY = BLDY_BUILD(ey);
 
 	/* windowing */
-	REG_WIN0H = floor_level.winh[vc + 1];
+	u8 draw_start = MIN(floor_level.winh[vc + 1] >> 8, wall_level.winh[vc + 1] >> 8);
+	u8 draw_end  = MAX(floor_level.winh[vc + 1] & 0xFF, wall_level.winh[vc + 1] & 0xFF);
+	REG_WIN0H = WIN_BUILD(draw_end, draw_start);
 	REG_WIN0V = SCREEN_HEIGHT;
 }
 
 IWRAM_CODE void
-m7_prep_affines(m7_level_t *level) {
+m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 	raycast_input_t rin;
-	raycast_output_t rout;
+	raycast_output_t routs[2];
+	m7_level_t *levels[2] = {level_3, level_2};
 
-	int h;
-	BG_AFFINE *bg_aff_ptr;
-	u16 *winh_ptr;
-	for (h = 0, bg_aff_ptr = &level->bgaff[0], winh_ptr = &level->winh[0];
-		h < SCREEN_HEIGHT;
-		h++, bg_aff_ptr++, winh_ptr++) {
+	m7_cam_t *cam = level_2->camera;
 
-		init_raycast(level->camera, h, &rin);
-		raycast(level, &rin, &rout);
+	for (int h = 0; h < SCREEN_HEIGHT; h++) {
 
-		FIXED lambda = fxdiv(rout.perp_wall_dist, level->camera->fov) / PIX_PER_BLOCK;
+		init_raycast(cam, h, &rin);
 
-		compute_affines(level, &rin, &rout, lambda, bg_aff_ptr);
-		compute_windows(level, lambda, winh_ptr);
+		FIXED lambda;
+		for (int bg = 0; bg < 2; bg++) {
+			raycast(levels[bg], &rin, &routs[bg]);
+
+			lambda = fxdiv(routs[bg].perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
+
+			compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
+			compute_windows(levels[bg], lambda, &levels[bg]->winh[h]);
+		}
 
 		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
-		bg_aff_ptr->pb = lambda;
+		levels[0]->bgaff[h].pb = lambda;
 	}
 
 	/* needed to correctly scale last scanline */
-	level->bgaff[SCREEN_HEIGHT] = level->bgaff[0];
-	level->winh[SCREEN_HEIGHT]  = level->winh[0];
+	level_2->bgaff[SCREEN_HEIGHT] = level_2->bgaff[0];
+	level_2->winh[SCREEN_HEIGHT]  = level_2->winh[0];
+	level_3->bgaff[SCREEN_HEIGHT] = level_3->bgaff[0];
+	level_3->winh[SCREEN_HEIGHT]  = level_3->winh[0];
 }
 
 /* raycasting implementations */
@@ -159,11 +165,11 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 		if (rout.dist_y < rout.dist_z) {
 			rout.dist_y += rin->delta_dist_y;
 			rout.map_y  += rin->delta_map_y;
-			rout.side    = 0;
+			rout.side    = (rin->delta_map_y < 0) ? N_SIDE : S_SIDE;
 		} else {
 			rout.dist_z += rin->delta_dist_z;
 			rout.map_z  += rin->delta_map_z;
-			rout.side    = 1;
+			rout.side    = (rin->delta_map_z < 0) ? W_SIDE : E_SIDE;
 		}
 
 		if (level->blocks[rout.map_y * level->blocks_width + rout.map_z] > 0) {
@@ -172,7 +178,7 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 	}
 
 	/* calculate wall distance */
-	if (rout.side == 0) {
+	if ((rout.side == N_SIDE) || (rout.side == S_SIDE)) {
 		rout.perp_wall_dist = fxdiv(
 			fxadd(
 				fxsub(int2fx(rout.map_y), level->camera->pos.y),
@@ -206,27 +212,39 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 	bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), a_x * PIX_PER_BLOCK);
 
 	/* move side to correct texture source */
-	if (rout->side == 1) {
+	if (((rout->side == E_SIDE) || (rout->side == W_SIDE))) {
 		bg_aff_ptr->dx += int2fx(level->texture_width);
 	}
 
 	/* calculate angle corrections (angles are .12f) */
 	FIXED correction;
-	if (rout->side == 0) {
+	if ((rout->side == N_SIDE) || (rout->side == S_SIDE)) {
 		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_z), a_z);
 	} else {
 		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_y), a_y);
 	}
 	correction *= PIX_PER_BLOCK;
 
-	/* wrap texture for ceiling */
-	if (((rout->side == 0) && (rin->ray_y > 0)) ||
-		((rout->side == 1) && (rin->ray_z < 0))) {
-		correction = fxsub(int2fx(level->texture_height), correction);
-	}
-
 	/* apply correction */
 	bg_aff_ptr->dy = correction;
+
+	/* wrap texture for ceiling */
+	if ((((rout->side == N_SIDE) || (rout->side == S_SIDE)) && (rin->ray_y > 0)) ||
+		(((rout->side == E_SIDE) || (rout->side == W_SIDE)) && (rin->ray_z < 0))) {
+		bg_aff_ptr->dy = fxsub(int2fx(level->texture_height), bg_aff_ptr->dy);
+	}
+
+	if (rout->side == N_SIDE) {
+		bg_aff_ptr->dx += int2fx(level->texture_height);
+	}
+	else if (rout->side == W_SIDE) {
+		bg_aff_ptr->dy += int2fx(level->texture_width);
+	}
+
+	/* offset down for bg2 */
+	if (level->bgcnt & BG_PRIO(1)) {
+		bg_aff_ptr->dy += int2fx(level->texture_height);
+	}
 }
 
 IWRAM_CODE static void
@@ -241,7 +259,7 @@ compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr) {
 			lambda)
 		* PIX_PER_BLOCK);
 
-	int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
+	int draw_start = (-line_height) / 2 + M7_RIGHT - a_x_offs + 1;
 	draw_start = CLAMP(draw_start, 0, M7_RIGHT);
 
 	int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
