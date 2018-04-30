@@ -64,16 +64,16 @@ m7_hbl() {
 	REG_WIN0V = SCREEN_HEIGHT;
 }
 
+#define RAYCAST_FREQ 2
 IWRAM_CODE void
 m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 	raycast_input_t rin;
 	raycast_output_t routs[2];
-	m7_level_t *levels[2] = {level_3, level_2};
+	m7_level_t *levels[2] = {level_2, level_3};
 
 	m7_cam_t *cam = level_2->camera;
 
-	for (int h = 0; h < SCREEN_HEIGHT; h++) {
-
+	for (int h = 0; h < SCREEN_HEIGHT; h += RAYCAST_FREQ) {
 		init_raycast(cam, h, &rin);
 
 		FIXED lambda;
@@ -84,6 +84,11 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 
 			compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
 			compute_windows(levels[bg], lambda, &levels[bg]->winh[h]);
+
+			for (int i = 1; i < RAYCAST_FREQ; i++) {
+				levels[bg]->bgaff[h + i] = levels[bg]->bgaff[h];
+				levels[bg]->winh[h + i]  = levels[bg]->winh[h];
+			}
 		}
 
 		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
