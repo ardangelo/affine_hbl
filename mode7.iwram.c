@@ -17,193 +17,212 @@
 
 #define TRIG_ANGLE_MAX 0xFFFF
 
-IWRAM_CODE void m7_hbl() {
+/* raycasting prototypes */
+
+typedef struct {
+	FIXED perp_wall_dist;
+	FIXED dist_y_0, dist_z_0;
+	FIXED delta_map_y, delta_map_z;
+	FIXED delta_dist_y, delta_dist_z;
+	FIXED ray_y, ray_z;
+	int map_y_0, map_z_0;
+} raycast_input_t;
+
+typedef struct {
+	int side;
+	FIXED perp_wall_dist;
+	FIXED dist_y, dist_z;
+	int map_y, map_z;
+} raycast_output_t;
+
+IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr);
+IWRAM_CODE static void raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr);
+IWRAM_CODE static void compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
+IWRAM_CODE static void compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr);
+
+/* public function implementations */
+
+IWRAM_CODE void
+m7_hbl() {
 	int vc = REG_VCOUNT;
 
 	/* apply affine */
-	BG_AFFINE *wa = &m7_level.wallaff[vc + 1];
-	REG_BG_AFFINE[2] = *wa;
-	BG_AFFINE *bga = &m7_level.bgaff[vc + 1];
+	REG_BG_AFFINE[2] = wall_level.bgaff[vc + 1];
+
+	BG_AFFINE *bga   = &floor_level.bgaff[vc + 1];
 	REG_BG_AFFINE[3] = *bga;
 
 	/* shading */
 	u32 ey = bga->pb >> 7;
 	if (ey > 16) { ey = 16; }
 	REG_BLDY = BLDY_BUILD(ey);
-	REG_WIN0H = m7_level.winh[vc + 1];
+
+	/* windowing */
+	REG_WIN0H = floor_level.winh[vc + 1];
 	REG_WIN0V = SCREEN_HEIGHT;
 }
 
-IWRAM_CODE void m7_prep_affines(m7_level_t *level) {
-	m7_cam_t *cam = level->camera;
+IWRAM_CODE void
+m7_prep_affines(m7_level_t *level) {
+	raycast_input_t rin;
+	raycast_output_t rout;
 
-	/* location vector */
-	FIXED a_x = cam->pos.x; // 8f
-	FIXED a_y = cam->pos.y; // 8f
-	FIXED a_z = cam->pos.z; // 8f
+	int h;
+	BG_AFFINE *bg_aff_ptr;
+	u16 *winh_ptr;
+	for (h = 0, bg_aff_ptr = &level->bgaff[0], winh_ptr = &level->winh[0];
+		h < SCREEN_HEIGHT;
+		h++, bg_aff_ptr++, winh_ptr++) {
+
+		init_raycast(level->camera, h, &rin);
+		raycast(level, &rin, &rout);
+
+		FIXED lambda = fxdiv(rout.perp_wall_dist, level->camera->fov) / PIX_PER_BLOCK;
+
+		compute_affines(level, &rin, &rout, lambda, bg_aff_ptr);
+		compute_windows(level, lambda, winh_ptr);
+
+		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
+		bg_aff_ptr->pb = lambda;
+	}
+
+	/* needed to correctly scale last scanline */
+	level->bgaff[SCREEN_HEIGHT] = level->bgaff[0];
+	level->winh[SCREEN_HEIGHT]  = level->winh[0];
+}
+
+/* raycasting implementations */
+
+IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr) {
+	raycast_input_t rin;
 
 	/* sines and cosines of pitch */
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
 
-	BG_AFFINE *bg_aff_ptr = &level->bgaff[0];
-	BG_AFFINE *wall_aff_ptr = &level->wallaff[0];
-	u16 *winh_ptr = &level->winh[0];
+	/* ray intersect in camera plane */
+	FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
 
-	for (int h = 0; h < SCREEN_HEIGHT; h++) {
-		/* ray intersect in camera plane */
-		FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+	/* ray components in world space */
+	rin.ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), x_c));
+	if (rin.ray_y == 0) { rin.ray_y = 1; }
+	rin.ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), x_c));
+	if (rin.ray_z == 0) { rin.ray_z = 1; }
 
-		/* ray components in world space */
-		FIXED ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), x_c));
-		if (ray_y == 0) { ray_y = 1; }
-		FIXED ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), x_c));
-		if (ray_z == 0) { ray_z = 1; }
+	/* map coordinates */
+	rin.map_y_0 = fx2int(cam->pos.y);
+	rin.map_z_0 = fx2int(cam->pos.z);
 
-		/* map coordinates */
-		int map_y = fx2int(a_y);
-		int map_z = fx2int(a_z);
+	/* ray lengths to next x / z side */
+	rin.delta_dist_y = ABS(fxdiv(int2fx(1), rin.ray_y));
+	rin.delta_dist_z = ABS(fxdiv(int2fx(1), rin.ray_z));
 
-		/* ray lengths to next x / z side */
-		FIXED delta_dist_y = ABS(fxdiv(int2fx(1), ray_y));
-		FIXED delta_dist_z = ABS(fxdiv(int2fx(1), ray_z));
-
-		/* initialize map / distance steps */
-		int delta_map_y, delta_map_z;
-		FIXED dist_y, dist_z;
-		if (ray_y < 0) {
-			delta_map_y = -1;
-			dist_y = fxmul(fxsub(a_y, int2fx(map_y)), delta_dist_y);
-		} else {
-			delta_map_y = 1;
-			dist_y = fxmul(fxsub(int2fx(map_y + 1), a_y), delta_dist_y);
-		}
-		if (ray_z < 0) {
-			delta_map_z = -1;
-			dist_z = fxmul(fxsub(a_z, int2fx(map_z)), delta_dist_z);
-		} else {
-			delta_map_z = 1;
-			dist_z = fxmul(fxsub(int2fx(map_z + 1), a_z), delta_dist_z);
-		}
-
-		/* perform raycast */
-		int hit = 0;
-		int side;
-		while (!hit) {
-			if (dist_y < dist_z) {
-				dist_y += delta_dist_y;
-				map_y += delta_map_y;
-				side = 0;
-			} else {
-				dist_z += delta_dist_z;
-				map_z += delta_map_z;
-				side = 1;
-			}
-
-			if (m7_level.blocks[map_y * m7_level.blocks_width + map_z] > 0) {
-				hit = 1;
-			}
-		}
-
-		/* calculate wall distance */
-		FIXED perp_wall_dist;
-		if (side == 0) {
-			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_y), a_y), fxdiv(int2fx(1 - delta_map_y), int2fx(2))), ray_y);
-		} else {
-			perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(map_z), a_z), fxdiv(int2fx(1 - delta_map_z), int2fx(2))), ray_z);
-		}
-		if (perp_wall_dist == 0) { perp_wall_dist = 1; }
-
-		/* build affine matrices */
-		FIXED lambda = fxdiv(perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
-
-		/* scaling */
-		bg_aff_ptr->pa = lambda;
-
-		/* camera x-position */
-		bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), a_x * PIX_PER_BLOCK);
-
-		/* move side to correct texture source */
-		if (side == 1) {
-			bg_aff_ptr->dx += int2fx(level->texture_width);
-		}
-
-		/* calculate angle corrections (angles are .12f) */
-		FIXED correction;
-		if (side == 0) {
-			correction = fxadd(fxmul(perp_wall_dist, ray_z), a_z);
-		} else {
-			correction = fxadd(fxmul(perp_wall_dist, ray_y), a_y);
-		}
-		correction *= PIX_PER_BLOCK;
-
-		/* wrap texture for ceiling */
-		if (((side == 0) && (ray_y > 0)) ||
-			((side == 1) && (ray_z < 0))) {
-			correction = fxsub(int2fx(level->texture_height), correction);
-		}
-
-		bg_aff_ptr->dy = correction;
-
-		/* calculate windowing */
-		int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_width * 2), lambda), cam->fov));
-		int a_x_offs = fx2int(fxdiv((a_x - (level->a_x_range / 2)), lambda) * PIX_PER_BLOCK);
-
-		int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
-		draw_start = CLAMP(draw_start, 0, M7_RIGHT);
-		int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
-		draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
-
-		/* pb and pd aren't used (q_y is implicitly zero) */
-		bg_aff_ptr->pb = lambda;
-		bg_aff_ptr->pd = 0;
-
-		/* calculate wall affine */
-		static int wall_enabled = 1;
-		if (a_z < int2fx(17)) {
-			if (!wall_enabled) {
-				REG_DISPCNT ^= DCNT_BG2;
-				wall_enabled = 1;
-			}
-
-			FIXED yb = (h - M7_TOP) * sin_theta - M7_D * cos_theta;
-			if (yb == 0) { yb = 1; }
-			FIXED lam = fxdiv((a_z - float2fx(16.5)) * PIX_PER_BLOCK, yb);
-
-			wall_aff_ptr->pa = lam;
-
-			FIXED zb = (h - M7_TOP) * cos_theta + M7_D * sin_theta;
-			wall_aff_ptr->dx = fxadd(a_x * PIX_PER_BLOCK, lam * M7_LEFT);
-			wall_aff_ptr->dy = fxadd(a_y * PIX_PER_BLOCK, fxmul(lam, zb));
-
-			/* update windowing */
-			if ((in_range(wall_aff_ptr->dy, int2fx(0), int2fx(40)) ||
-				 in_range(wall_aff_ptr->dy, int2fx(128), int2fx(256)))) {
-				line_height = fx2int(fxmul(fxdiv(int2fx(128 * 2), lam), cam->fov));
-				a_x_offs = fx2int(fxdiv((a_x - (3 * level->a_x_range / 4)), lam) * PIX_PER_BLOCK);
-
-				int draw_start_p = -line_height / 2 + M7_RIGHT - a_x_offs;
-				draw_start_p = CLAMP(draw_start_p, 0, M7_RIGHT);
-				draw_start = MIN(draw_start, draw_start_p);
-				int draw_end_p = line_height / 2 + M7_RIGHT - a_x_offs;
-				draw_end_p = CLAMP(draw_end_p, M7_RIGHT + 1, SCREEN_WIDTH + 1);
-				draw_end = MAX(draw_end, draw_end_p);
-			}
-		} else {
-			if (wall_enabled) {
-				REG_DISPCNT ^= DCNT_BG2;
-				wall_enabled = 0;
-			}
-		}
-
-		/* apply windowing */
-		*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
-
-		bg_aff_ptr++;
-		wall_aff_ptr++;
-		winh_ptr++;
+	/* initialize map / distance steps */
+	if (rin.ray_y < 0) {
+		rin.delta_map_y = -1;
+		rin.dist_y_0 = fxmul(fxsub(cam->pos.y, int2fx(rin.map_y_0)), rin.delta_dist_y);
+	} else {
+		rin.delta_map_y = 1;
+		rin.dist_y_0 = fxmul(fxsub(int2fx(rin.map_y_0 + 1), cam->pos.y), rin.delta_dist_y);
 	}
-	level->bgaff[SCREEN_HEIGHT] = level->bgaff[0];
-	level->wallaff[SCREEN_HEIGHT] = level->wallaff[0];
-	level->winh[SCREEN_HEIGHT] = level->winh[0];
+	if (rin.ray_z < 0) {
+		rin.delta_map_z = -1;
+		rin.dist_z_0 = fxmul(fxsub(cam->pos.z, int2fx(rin.map_z_0)), rin.delta_dist_z);
+	} else {
+		rin.delta_map_z = 1;
+		rin.dist_z_0 = fxmul(fxsub(int2fx(rin.map_z_0 + 1), cam->pos.z), rin.delta_dist_z);
+	}
+
+	/* apply raytrace preparation */
+	*rin_ptr = rin;
+}
+
+IWRAM_CODE static void
+raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr) {
+	raycast_output_t rout;
+
+	rout.dist_y = rin->dist_y_0;
+	rout.dist_z = rin->dist_z_0;
+	rout.map_y  = rin->map_y_0;
+	rout.map_z  = rin->map_z_0;
+	int hit = 0;
+
+	while (!hit) {
+		if (rout.dist_y < rout.dist_z) {
+			rout.dist_y += rin->delta_dist_y;
+			rout.map_y  += rin->delta_map_y;
+			rout.side    = 0;
+		} else {
+			rout.dist_z += rin->delta_dist_z;
+			rout.map_z  += rin->delta_map_z;
+			rout.side    = 1;
+		}
+
+		if (level->blocks[rout.map_y * level->blocks_width + rout.map_z] > 0) {
+			hit = 1;
+		}
+	}
+
+	/* calculate wall distance */
+	if (rout.side == 0) {
+		rout.perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(rout.map_y), level->camera->pos.y), fxdiv(int2fx(1 - rin->delta_map_y), int2fx(2))), rin->ray_y);
+	} else {
+		rout.perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(rout.map_z), level->camera->pos.z), fxdiv(int2fx(1 - rin->delta_map_z), int2fx(2))), rin->ray_z);
+	}
+	if (rout.perp_wall_dist == 0) { rout.perp_wall_dist = 1; }
+
+	/* apply raytrace result */
+	*rout_ptr = rout;
+}
+
+IWRAM_CODE static void
+compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr) {
+
+	/* location vector */
+	FIXED a_x = level->camera->pos.x; // 8f
+	FIXED a_y = level->camera->pos.y; // 8f
+	FIXED a_z = level->camera->pos.z; // 8f
+
+	/* scaling */
+	bg_aff_ptr->pa = lambda;
+
+	/* camera x-position */
+	bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), a_x * PIX_PER_BLOCK);
+
+	/* move side to correct texture source */
+	if (rout->side == 1) {
+		bg_aff_ptr->dx += int2fx(level->texture_width);
+	}
+
+	/* calculate angle corrections (angles are .12f) */
+	FIXED correction;
+	if (rout->side == 0) {
+		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_z), a_z);
+	} else {
+		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_y), a_y);
+	}
+	correction *= PIX_PER_BLOCK;
+
+	/* wrap texture for ceiling */
+	if (((rout->side == 0) && (rin->ray_y > 0)) ||
+		((rout->side == 1) && (rin->ray_z < 0))) {
+		correction = fxsub(int2fx(level->texture_height), correction);
+	}
+
+	/* apply correction */
+	bg_aff_ptr->dy = correction;
+}
+
+IWRAM_CODE static void
+compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr) {
+	int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_width * 2), lambda), level->camera->fov));
+	int a_x_offs = fx2int(fxdiv((level->camera->pos.x - (level->a_x_range / 2)), lambda) * PIX_PER_BLOCK);
+
+	int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
+	draw_start = CLAMP(draw_start, 0, M7_RIGHT);
+
+	int draw_end = line_height / 2 + M7_RIGHT - a_x_offs;
+	draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
+
+	*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 }

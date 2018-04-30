@@ -3,19 +3,18 @@
 
 #include "mode7.h"
 
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], BG_AFFINE wallaff[], u16 *winh_arr, u16 floorcnt, u16 wallcnt) {
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 *winh_arr, u16 bgcnt, int bgno) {
 	level->camera = cam;
 	level->bgaff = bgaff;
-	level->wallaff = wallaff;
 	level->winh = winh_arr;
-	level->floorcnt = floorcnt;
-	level->wallcnt = wallcnt;
+	level->bgcnt = bgcnt;
 
-	REG_BG2CNT = wallcnt;
-	REG_BG_AFFINE[2] = bg_aff_default;
-
-	REG_BG3CNT = floorcnt;
-	REG_BG_AFFINE[3] = bg_aff_default;
+	if (bgno == 2) {
+		REG_BG2CNT = bgcnt;
+	} else {
+		REG_BG3CNT = bgcnt;
+	}
+	REG_BG_AFFINE[bgno] = bg_aff_default;
 }
 
 void m7_rotate(m7_cam_t *cam, int theta) {
@@ -58,12 +57,12 @@ void m7_translate_local(m7_level_t *level, const VECTOR *dir) {
 
 	/* check y / z wall collision independently */
 	if ((pos.y >= 0) && (fx2int(pos.y) < level->blocks_height)) {
-		if (level->blocks[(fx2int(pos.y) * m7_level.blocks_width) + fx2int(cam->pos.z)] == 0) {
+		if (level->blocks[(fx2int(pos.y) * level->blocks_width) + fx2int(cam->pos.z)] == 0) {
 			cam->pos.y = pos.y;
 		}
 	}
 	if ((pos.z >= 0) && (fx2int(pos.z) < level->blocks_width)) {
-		if (level->blocks[(fx2int(cam->pos.y) * m7_level.blocks_width) + fx2int(pos.z)] == 0) {
+		if (level->blocks[(fx2int(cam->pos.y) * level->blocks_width) + fx2int(pos.z)] == 0) {
 			cam->pos.z = pos.z;
 		}
 	}

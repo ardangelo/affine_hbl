@@ -27,10 +27,6 @@ all: $(ROMNAME).gba
 gfx/fanroom.o gfx/fanroom.h : gfx/fanroom.png
 	$(GRIT) gfx/fanroom.png -ogfx/fanroom -fts -gB8 -mRa -mLa -p! -Zl
 	$(CC) $(ASFLAGS) -c gfx/fanroom.s -o gfx/fanroom.o
-# Fan room wall 1 : affine map, 64x64t, LZ77 compressed
-gfx/wall1.o gfx/wall1.h : gfx/wall1.png
-	$(GRIT) gfx/wall1.png -ogfx/wall1 -fts -gB8 -mRa -mLa -p! -Zl
-	$(CC) $(ASFLAGS) -c gfx/wall1.s -o gfx/wall1.o
 # Background palette, LZ77 compressed.
 gfx/bgpal.o gfx/bgpal.h : gfx/bgpal.png
 	$(GRIT) gfx/bgpal.png -ogfx/bgpal -fts -gB8 -g! -s bg -Zl
@@ -51,7 +47,7 @@ gfx/objpal.s gfx/objpal.h : gfx/objpal.png
 	$(GRIT) gfx/objpal.png -ogfx/objpal -fts -gB8 -g! -s obj -Zl
 	$(CC) $(ASFLAGS) -c gfx/objpal.s -o gfx/objpal.o
 
-GFX_ASM := gfx/fanroom.s gfx/wall1.s gfx/bgpal.s
+GFX_ASM := gfx/fanroom.s gfx/bgpal.s
 GFX_ASM += gfx/karts.s gfx/thwomp.s gfx/objpal.s
 GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)

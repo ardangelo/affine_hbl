@@ -34,10 +34,7 @@ typedef struct _m7_level_t {
 	u16 *winh; /* window 0 widths */
 
 	BG_AFFINE *bgaff; /* affine parameter array */
-	u16 wallcnt; /* BGxCNT for floor */
-
-	BG_AFFINE *wallaff;
-	u16 floorcnt;
+	u16 bgcnt; /* BGxCNT for floor */
 
 	int *blocks;
 	int blocks_width, blocks_height;
@@ -46,10 +43,10 @@ typedef struct _m7_level_t {
 } m7_level_t;
 
 /* accessible both from main and iwram */
-extern m7_level_t m7_level;
+extern m7_level_t floor_level, wall_level;
 
 /* level functions */
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], BG_AFFINE wallaff[], u16 *winh_arr, u16 floorcnt, u16 wallcnt);
+void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 *winh_arr, u16 bgcnt, int bgno);
 
 /* camera functions */
 void m7_rotate(m7_cam_t *cam, int theta);
