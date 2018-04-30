@@ -2,6 +2,8 @@
 
 #include "mode7.h"
 
+#define RAYCAST_FREQ 1
+
 #define PIX_PER_BLOCK 16
 
 #define FSH 8
@@ -29,6 +31,7 @@ typedef struct {
 } raycast_input_t;
 
 typedef struct {
+	int enabled;
 	enum {N_SIDE, S_SIDE, E_SIDE, W_SIDE} side;
 	FIXED perp_wall_dist;
 	FIXED dist_y, dist_z;
@@ -47,10 +50,23 @@ m7_hbl() {
 	int vc = REG_VCOUNT;
 
 	/* apply affine */
-	REG_BG_AFFINE[2] = wall_level.bgaff[vc + 1];
+	BG_AFFINE *bga;
 
-	BG_AFFINE *bga   = &floor_level.bgaff[vc + 1];
-	REG_BG_AFFINE[3] = *bga;
+	REG_BG_AFFINE[3] = wall_level.bgaff[vc + 1];
+
+	/* hide the wall if applicable */
+	bga = &wall_level.bgaff[(vc + 2) % SCREEN_HEIGHT];
+	static int wall_hidden = 0;
+	if (!wall_hidden && (bga->pa == 0)) {
+		REG_DISPCNT = (REG_DISPCNT & ~DCNT_MODE2) | DCNT_MODE1;
+		wall_hidden = 1;
+	} else if (wall_hidden && (bga->pa != 0)) {
+		REG_DISPCNT = (REG_DISPCNT & ~DCNT_MODE1) | DCNT_MODE2;
+		wall_hidden = 0;
+	}
+
+	bga = &floor_level.bgaff[vc + 1];
+	REG_BG_AFFINE[2] = *bga;
 
 	/* shading */
 	u32 ey = bga->pb >> 7;
@@ -58,13 +74,16 @@ m7_hbl() {
 	REG_BLDY = BLDY_BUILD(ey);
 
 	/* windowing */
-	u8 draw_start = MIN(floor_level.winh[vc + 1] >> 8, wall_level.winh[vc + 1] >> 8);
-	u8 draw_end  = MAX(floor_level.winh[vc + 1] & 0xFF, wall_level.winh[vc + 1] & 0xFF);
-	REG_WIN0H = WIN_BUILD(draw_end, draw_start);
+	if (!wall_hidden) {
+		u8 draw_start = MIN(floor_level.winh[vc + 1] >> 8, wall_level.winh[vc + 1] >> 8);
+		u8 draw_end  = MAX(floor_level.winh[vc + 1] & 0xFF, wall_level.winh[vc + 1] & 0xFF);
+		REG_WIN0H = WIN_BUILD(draw_end, draw_start);
+	} else {
+		REG_WIN0H = floor_level.winh[vc + 1];
+	}
 	REG_WIN0V = SCREEN_HEIGHT;
 }
 
-#define RAYCAST_FREQ 2
 IWRAM_CODE void
 m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 	raycast_input_t rin;
@@ -76,14 +95,19 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 	for (int h = 0; h < SCREEN_HEIGHT; h += RAYCAST_FREQ) {
 		init_raycast(cam, h, &rin);
 
-		FIXED lambda;
+		FIXED lambda = 0;
 		for (int bg = 0; bg < 2; bg++) {
 			raycast(levels[bg], &rin, &routs[bg]);
 
-			lambda = fxdiv(routs[bg].perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
+			if (!routs[bg].enabled) {
+				levels[bg]->bgaff[h].pa = 0;
+				levels[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
+			} else {
+				lambda = fxdiv(routs[bg].perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
 
-			compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
-			compute_windows(levels[bg], lambda, &levels[bg]->winh[h]);
+				compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
+				compute_windows(levels[bg], lambda, &levels[bg]->winh[h]);
+			}
 
 			for (int i = 1; i < RAYCAST_FREQ; i++) {
 				levels[bg]->bgaff[h + i] = levels[bg]->bgaff[h];
@@ -177,8 +201,13 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 			rout.side    = (rin->delta_map_z < 0) ? W_SIDE : E_SIDE;
 		}
 
-		if (level->blocks[rout.map_y * level->blocks_width + rout.map_z] > 0) {
-			hit = 1;
+		if ((hit = level->blocks[rout.map_y * level->blocks_width + rout.map_z])) {
+			if (hit == 1) {
+				rout_ptr->enabled = 0;
+				return;
+			} else {
+				rout.enabled = 1;
+			}
 		}
 	}
 
