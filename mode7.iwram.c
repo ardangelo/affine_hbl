@@ -120,17 +120,25 @@ IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t 
 	/* initialize map / distance steps */
 	if (rin.ray_y < 0) {
 		rin.delta_map_y = -1;
-		rin.dist_y_0 = fxmul(fxsub(cam->pos.y, int2fx(rin.map_y_0)), rin.delta_dist_y);
+		rin.dist_y_0 = fxmul(
+			fxsub(cam->pos.y, int2fx(rin.map_y_0)),
+			rin.delta_dist_y);
 	} else {
 		rin.delta_map_y = 1;
-		rin.dist_y_0 = fxmul(fxsub(int2fx(rin.map_y_0 + 1), cam->pos.y), rin.delta_dist_y);
+		rin.dist_y_0 = fxmul(
+			fxsub(int2fx(rin.map_y_0 + 1), cam->pos.y),
+			rin.delta_dist_y);
 	}
 	if (rin.ray_z < 0) {
 		rin.delta_map_z = -1;
-		rin.dist_z_0 = fxmul(fxsub(cam->pos.z, int2fx(rin.map_z_0)), rin.delta_dist_z);
+		rin.dist_z_0 = fxmul(
+			fxsub(cam->pos.z, int2fx(rin.map_z_0)),
+			rin.delta_dist_z);
 	} else {
 		rin.delta_map_z = 1;
-		rin.dist_z_0 = fxmul(fxsub(int2fx(rin.map_z_0 + 1), cam->pos.z), rin.delta_dist_z);
+		rin.dist_z_0 = fxmul(
+			fxsub(int2fx(rin.map_z_0 + 1), cam->pos.z),
+			rin.delta_dist_z);
 	}
 
 	/* apply raytrace preparation */
@@ -165,9 +173,17 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 
 	/* calculate wall distance */
 	if (rout.side == 0) {
-		rout.perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(rout.map_y), level->camera->pos.y), fxdiv(int2fx(1 - rin->delta_map_y), int2fx(2))), rin->ray_y);
+		rout.perp_wall_dist = fxdiv(
+			fxadd(
+				fxsub(int2fx(rout.map_y), level->camera->pos.y),
+				int2fx(1 - rin->delta_map_y) / 2),
+			rin->ray_y);
 	} else {
-		rout.perp_wall_dist = fxdiv(fxadd(fxsub(int2fx(rout.map_z), level->camera->pos.z), fxdiv(int2fx(1 - rin->delta_map_z), int2fx(2))), rin->ray_z);
+		rout.perp_wall_dist = fxdiv(
+			fxadd(
+				fxsub(int2fx(rout.map_z), level->camera->pos.z),
+				int2fx(1 - rin->delta_map_z) / 2),
+			rin->ray_z);
 	}
 	if (rout.perp_wall_dist == 0) { rout.perp_wall_dist = 1; }
 
@@ -215,8 +231,15 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 
 IWRAM_CODE static void
 compute_windows(const m7_level_t *level, FIXED lambda, u16 *winh_ptr) {
-	int line_height = fx2int(fxmul(fxdiv(int2fx(level->texture_width * 2), lambda), level->camera->fov));
-	int a_x_offs = fx2int(fxdiv((level->camera->pos.x - (level->a_x_range / 2)), lambda) * PIX_PER_BLOCK);
+	int line_height = fx2int(
+		fxmul(
+			fxdiv(int2fx(level->texture_width * 2), lambda),
+			level->camera->fov));
+	int a_x_offs = fx2int(
+		fxdiv(
+			level->camera->pos.x - (level->a_x_range / 2),
+			lambda)
+		* PIX_PER_BLOCK);
 
 	int draw_start = -line_height / 2 + M7_RIGHT - a_x_offs;
 	draw_start = CLAMP(draw_start, 0, M7_RIGHT);
