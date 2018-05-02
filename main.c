@@ -76,6 +76,11 @@ const int fanroom_floor_blocks[16 * 32] = {
   2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2
 };
 
+int floor_extents[16 * 2] = {
+	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
+	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
+};
+
 const int fanroom_wall_blocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
   1,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 3,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1,
@@ -105,7 +110,7 @@ void init_map() {
 	floor_level.blocks = (int*)fanroom_floor_blocks;
 	wall_level.blocks = (int*)fanroom_wall_blocks;
 
-	floor_level.window_extents = NULL;
+	floor_level.window_extents = floor_extents;
 	wall_level.window_extents = wall_extents;
 
 	floor_level.blocks_width = 32; floor_level.blocks_height = 16;
@@ -123,13 +128,19 @@ void init_map() {
 	m7_init(&wall_level, &m7_cam, wall_bgaff_arr, wall_winh,
 		BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(WALL_PRIO), 3);
 	m7_cam = m7_cam_default;
-
 	m7_cam.fov = fxdiv(int2fx(M7_TOP), int2fx(M7_D));
 
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
 	LZ77UnCompVram(fanroomTiles, tile_mem[M7_CBB]);
 	LZ77UnCompVram(fanroomMap, se_mem[FLOOR_SBB]);
+
+	/* precompute for mode 7 */
+	pre.inv_fov = fxdiv(int2fx(1), m7_cam.fov);
+	pre.inv_fov_x_ppb = fxdiv(int2fx(1), m7_cam.fov * PIX_PER_BLOCK);
+	for (int h = 0; h < SCREEN_HEIGHT; h++) {
+		pre.x_cs[h] = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+	}
 
 	/* setup shadow fade */
 	REG_BLDCNT = BLD_BUILD(BLD_BG2 | BLD_BG3, BLD_BACKDROP, 3);

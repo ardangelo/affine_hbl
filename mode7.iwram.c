@@ -4,8 +4,6 @@
 
 #define RAYCAST_FREQ 1
 
-#define PIX_PER_BLOCK 16
-
 #define FSH 8
 #define FSC (1 << FSH)
 #define FSC_F ((float)FSC)
@@ -19,6 +17,8 @@
 
 #define TRIG_ANGLE_MAX 0xFFFF
 
+m7_precompute pre;
+
 /* raycasting prototypes */
 
 typedef struct {
@@ -26,7 +26,7 @@ typedef struct {
 	FIXED dist_y_0, dist_z_0;
 	FIXED delta_map_y, delta_map_z;
 	FIXED delta_dist_y, delta_dist_z;
-	FIXED ray_y, ray_z;
+	FIXED ray_y, ray_z, inv_ray_y, inv_ray_z;
 	int map_y_0, map_z_0;
 } raycast_input_t;
 
@@ -104,15 +104,12 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 				levels[bg]->bgaff[h].pa = 0;
 				levels[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
 			} else {
-				lambda = fxdiv(routs[bg].perp_wall_dist, cam->fov) / PIX_PER_BLOCK;
+				lambda = fxmul(routs[bg].perp_wall_dist, pre.inv_fov_x_ppb);
 
 				compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
 
 				/* extent will correctly size window (texture can be transparent) */
-				int *extent = NULL; 
-				if (levels[bg]->window_extents != NULL) {
-					extent = &levels[bg]->window_extents[routs[bg].map_y * 2];
-				}
+				int *extent = &levels[bg]->window_extents[routs[bg].map_y * 2];
 				compute_windows(levels[bg], extent, lambda, &levels[bg]->winh[h]);
 			}
 
@@ -123,7 +120,7 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 		}
 
 		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
-		levels[0]->bgaff[h].pb = lambda;
+		level_3->bgaff[h].pb = lambda;
 	}
 
 	/* needed to correctly scale last scanline */
@@ -142,13 +139,12 @@ IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t 
 	FIXED cos_theta = cam->v.y; // 8f
 	FIXED sin_theta = cam->w.y; // 8f
 
-	/* ray intersect in camera plane */
-	FIXED x_c = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+	/* precomputed: x_c ray intersect in camera plane */
 
 	/* ray components in world space */
-	rin.ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), x_c));
+	rin.ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), pre.x_cs[h]));
 	if (rin.ray_y == 0) { rin.ray_y = 1; }
-	rin.ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), x_c));
+	rin.ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), pre.x_cs[h]));
 	if (rin.ray_z == 0) { rin.ray_z = 1; }
 
 	/* map coordinates */
@@ -156,8 +152,10 @@ IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t 
 	rin.map_z_0 = fx2int(cam->pos.z);
 
 	/* ray lengths to next x / z side */
-	rin.delta_dist_y = ABS(fxdiv(int2fx(1), rin.ray_y));
-	rin.delta_dist_z = ABS(fxdiv(int2fx(1), rin.ray_z));
+	rin.inv_ray_y = fxdiv(int2fx(1), rin.ray_y);
+	rin.delta_dist_y = ABS(rin.inv_ray_y);
+	rin.inv_ray_z = fxdiv(int2fx(1), rin.ray_z);
+	rin.delta_dist_z = ABS(rin.inv_ray_z);
 
 	/* initialize map / distance steps */
 	if (rin.ray_y < 0) {
@@ -220,17 +218,17 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 
 	/* calculate wall distance */
 	if ((rout.side == N_SIDE) || (rout.side == S_SIDE)) {
-		rout.perp_wall_dist = fxdiv(
+		rout.perp_wall_dist = fxmul(
 			fxadd(
 				fxsub(int2fx(rout.map_y), level->camera->pos.y),
 				int2fx(1 - rin->delta_map_y) / 2),
-			rin->ray_y);
+			rin->inv_ray_y);
 	} else {
-		rout.perp_wall_dist = fxdiv(
+		rout.perp_wall_dist = fxmul(
 			fxadd(
 				fxsub(int2fx(rout.map_z), level->camera->pos.z),
 				int2fx(1 - rin->delta_map_z) / 2),
-			rin->ray_z);
+			rin->inv_ray_z);
 	}
 	if (rout.perp_wall_dist == 0) { rout.perp_wall_dist = 1; }
 
@@ -290,32 +288,29 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 
 IWRAM_CODE static void
 compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *winh_ptr) {
-	FIXED a_x_offs = 0;
-	FIXED height_factor = 0;
-	if (extent == NULL) {
-		a_x_offs = level->a_x_range;
-		height_factor = int2fx(level->texture_width);
-	} else {
-		a_x_offs = level->a_x_range + int2fx(extent[0]);
-		height_factor = int2fx((extent[1] - extent[0]) * PIX_PER_BLOCK);
-	}
+	FIXED extent_width = fxmul(
+		int2fx((extent[1] - extent[0]) * PIX_PER_BLOCK), // normal extent width
+		level->camera->fov); // adjust for fov
 
-	int win_x_offs = fx2int(
-		fxdiv(
-			level->camera->pos.x - a_x_offs / 2,
-			lambda)
-		* PIX_PER_BLOCK);
+	FIXED a_x_offs = fxsub(
+		(level->a_x_range + int2fx(extent[0])) / 2, // origin relative to center of level
+		level->camera->pos.x // adjust by camera position
+	) * PIX_PER_BLOCK; // scale up to block size
 
-	int line_height = fx2int(
+	FIXED inv_lambda = fxdiv(int2fx(1), lambda);
+
+	int draw_start = 1 + M7_RIGHT + fx2int(
 		fxmul(
-			fxdiv(height_factor * 2, lambda),
-			level->camera->fov));
+			fxsub(a_x_offs, extent_width),
+			inv_lambda));
+	int draw_end = M7_RIGHT + fx2int(
+		fxmul(
+			fxadd(a_x_offs, extent_width),
+			inv_lambda));
 
-	int draw_start = (-line_height) / 2 + M7_RIGHT - win_x_offs + 1;
-	draw_start = CLAMP(draw_start, 0, M7_RIGHT);
-
-	int draw_end = line_height / 2 + M7_RIGHT - win_x_offs;
-	draw_end = CLAMP(draw_end, M7_RIGHT, SCREEN_WIDTH + 1);
+	/* clamp to screen size */
+	draw_start = CLAMP(draw_start, 0, SCREEN_WIDTH);
+	draw_end = CLAMP(draw_end, 0, SCREEN_WIDTH + 1);
 
 	*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
 }

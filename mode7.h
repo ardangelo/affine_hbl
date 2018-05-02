@@ -4,6 +4,8 @@
 #include <tonc.h>
 
 /* mode 7 constants */
+#define PIX_PER_BLOCK 16
+
 #define M7_D 160 /* focal length */
 #define M7_D_SHIFT 8 /* focal shift */
 #define M7_RENORM_SHIFT 2 /* renormalization shift */
@@ -43,8 +45,15 @@ typedef struct _m7_level_t {
 	int *window_extents;
 } m7_level_t;
 
+typedef struct {
+	FIXED inv_fov;
+	FIXED inv_fov_x_ppb;
+	FIXED x_cs[SCREEN_HEIGHT];
+} m7_precompute;
+
 /* accessible both from main and iwram */
 extern m7_level_t floor_level, wall_level;
+extern m7_precompute pre;
 
 /* level functions */
 void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 *winh_arr, u16 bgcnt, int bgno);
