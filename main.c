@@ -76,7 +76,7 @@ const int fanroom_floor_blocks[16 * 32] = {
   2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2
 };
 
-int floor_extents[16 * 2] = {
+const int floor_extents[16 * 2] = {
 	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
 	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
 };
@@ -140,11 +140,13 @@ void init_map() {
 	pre.inv_fov_x_ppb = fxdiv(int2fx(1), m7_cam.fov * PIX_PER_BLOCK);
 	for (int h = 0; h < SCREEN_HEIGHT; h++) {
 		pre.x_cs[h] = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+
 	}
 
 	/* setup shadow fade */
 	REG_BLDCNT = BLD_BUILD(BLD_BG2 | BLD_BG3, BLD_BACKDROP, 3);
 	REG_WININ = WININ_BUILD(WIN_BG2 | WIN_BG3 | WIN_BLD, 0);
+	REG_WIN0V = SCREEN_HEIGHT;
 	pal_bg_mem[0] = CLR_GRAY / 2;
 
 	/* registers */

@@ -38,11 +38,11 @@ typedef struct _m7_level_t {
 	BG_AFFINE *bgaff; /* affine parameter array */
 	u16 bgcnt; /* BGxCNT for floor */
 
-	int *blocks;
+	const int *blocks;
 	int blocks_width, blocks_height;
 	FIXED pixels_per_block, a_x_range;
 	int texture_width, texture_height;
-	int *window_extents;
+	const int *window_extents;
 } m7_level_t;
 
 typedef struct {
