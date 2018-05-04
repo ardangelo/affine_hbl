@@ -40,7 +40,7 @@ typedef struct {
 IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr);
 IWRAM_CODE static int raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr);
 IWRAM_CODE static void compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
-IWRAM_CODE static void compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *winh_ptr);
+IWRAM_CODE static void compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr);
 
 /* public function implementations */
 
@@ -53,7 +53,7 @@ m7_hbl() {
 	REG_BG_AFFINE[3] = wall_level.bgaff[vc + 1];
 
 	/* hide the wall (bg2) if applicable by flipping to mode 1 */
-	bga = &wall_level.bgaff[(vc + 2) % SCREEN_HEIGHT];
+	bga = &wall_level.bgaff[(vc + 2) > SCREEN_HEIGHT ? 0 : vc + 2];
 	static int wall_hidden = 0;
 	if (!wall_hidden && (bga->pa == 0)) {
 		REG_DISPCNT = (REG_DISPCNT & ~DCNT_MODE2) | DCNT_MODE1;
@@ -103,8 +103,7 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 				compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
 
 				/* extent will correctly size window (texture can be transparent) */
-				const int *extent = &levels[bg]->window_extents[routs[bg].map_y * 2];
-				compute_windows(levels[bg], extent, lambda, &levels[bg]->winh[h]);
+				compute_windows(levels[bg], routs[bg].map_y, lambda, &levels[bg]->winh[h]);
 			} else {
 				levels[bg]->bgaff[h].pa = 0;
 				levels[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
@@ -280,13 +279,9 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 }
 
 IWRAM_CODE static void
-compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *winh_ptr) {
-	FIXED extent_width = fxmul(
-		int2fx((extent[1] - extent[0]) * PIX_PER_BLOCK), // normal extent width
-		level->camera->fov); // adjust for fov
-
+compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr) {
 	FIXED a_x_offs = fxsub(
-		(level->a_x_range + int2fx(extent[0])) / 2, // origin relative to center of level
+		level->extent_offs[map_y], // origin relative to center of level
 		level->camera->pos.x // adjust by camera position
 	) * PIX_PER_BLOCK; // scale up to block size
 
@@ -294,11 +289,11 @@ compute_windows(const m7_level_t *level, const int *extent, FIXED lambda, u16 *w
 
 	int draw_start = 1 + M7_RIGHT + fx2int(
 		fxmul(
-			fxsub(a_x_offs, extent_width),
+			fxsub(a_x_offs, level->extent_widths[map_y]),
 			inv_lambda));
 	int draw_end = M7_RIGHT + fx2int(
 		fxmul(
-			fxadd(a_x_offs, extent_width),
+			fxadd(a_x_offs, level->extent_widths[map_y]),
 			inv_lambda));
 
 	/* clamp to screen size */

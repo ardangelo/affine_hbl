@@ -42,7 +42,7 @@ typedef struct _m7_level_t {
 	int blocks_width, blocks_height;
 	FIXED pixels_per_block, a_x_range;
 	int texture_width, texture_height;
-	const int *window_extents;
+	const FIXED *extent_widths, *extent_offs;
 } m7_level_t;
 
 typedef struct {

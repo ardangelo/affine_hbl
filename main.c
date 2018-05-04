@@ -80,6 +80,8 @@ const int floor_extents[16 * 2] = {
 	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
 	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
 };
+FIXED floor_extent_widths[16];
+FIXED floor_extent_offs[16];
 
 const int fanroom_wall_blocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
@@ -100,18 +102,17 @@ const int fanroom_wall_blocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1
 };
 
-int wall_extents[16 * 2] = {
+const int wall_extents[16 * 2] = {
 	0,16, 8,16, 8,16, 8,16, 0,16, 0,16, 0,16, 0,16,
 	8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16
 };
+FIXED wall_extent_widths[16];
+FIXED wall_extent_offs[16];
 
 void init_map() {
 	/* layout level */
 	floor_level.blocks = (int*)fanroom_floor_blocks;
 	wall_level.blocks = (int*)fanroom_wall_blocks;
-
-	floor_level.window_extents = floor_extents;
-	wall_level.window_extents = wall_extents;
 
 	floor_level.blocks_width = 32; floor_level.blocks_height = 16;
 	wall_level.blocks_width = 32; wall_level.blocks_height = 16;
@@ -121,6 +122,11 @@ void init_map() {
 
 	floor_level.a_x_range = int2fx(floor_level.texture_width / floor_level.blocks_height);
 	wall_level.a_x_range = floor_level.a_x_range;
+
+	floor_level.extent_widths = floor_extent_widths;
+	floor_level.extent_offs = floor_extent_offs;
+	wall_level.extent_widths = wall_extent_widths;
+	wall_level.extent_offs = wall_extent_offs;
 
 	/* init mode 7 */
 	m7_init(&floor_level, &m7_cam, floor_bgaff_arr, floor_winh,
@@ -140,7 +146,23 @@ void init_map() {
 	pre.inv_fov_x_ppb = fxdiv(int2fx(1), m7_cam.fov * PIX_PER_BLOCK);
 	for (int h = 0; h < SCREEN_HEIGHT; h++) {
 		pre.x_cs[h] = fxsub(2 * fxdiv(int2fx(h), int2fx(SCREEN_HEIGHT)), int2fx(1));
+	}
 
+	/* precompute window extent widths */
+	for (int i = 0; i < 16; i++) {
+		floor_extent_widths[i] = fxmul(
+			int2fx(
+				(floor_extents[i * 2 + 1] - floor_extents[i * 2 + 0])
+				* PIX_PER_BLOCK), // normal extent width
+			m7_cam.fov); // adjust for fov
+		floor_extent_offs[i] = (floor_level.a_x_range + int2fx(floor_extents[i * 2])) / 2;
+
+		wall_extent_widths[i] = fxmul(
+			int2fx(
+				(wall_extents[i * 2 + 1] - wall_extents[i * 2 + 0])
+				* PIX_PER_BLOCK), // normal extent width
+			m7_cam.fov); // adjust for fov
+		wall_extent_offs[i] = (wall_level.a_x_range + int2fx(wall_extents[i * 2])) / 2;
 	}
 
 	/* setup shadow fade */
