@@ -22,7 +22,6 @@ m7_precompute pre;
 /* raycasting prototypes */
 
 typedef struct {
-	FIXED perp_wall_dist;
 	FIXED dist_y_0, dist_z_0;
 	FIXED delta_map_y, delta_map_z;
 	FIXED delta_dist_y, delta_dist_z;
@@ -41,6 +40,7 @@ IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t 
 IWRAM_CODE static int raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr);
 IWRAM_CODE static void compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
 IWRAM_CODE static void compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr);
+IWRAM_CODE void m7_prep_sprite(const m7_level_t *level, m7_obj_t *spr);
 
 /* public function implementations */
 
@@ -301,4 +301,9 @@ compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr)
 	draw_end = CLAMP(draw_end, 0, SCREEN_WIDTH + 1);
 
 	*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
+}
+
+IWRAM_CODE void
+m7_prep_sprite(const m7_level_t *level, m7_obj_t *spr) {
+	
 }

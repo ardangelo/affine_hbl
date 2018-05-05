@@ -35,9 +35,12 @@ char *dbg_str;
 
 /* m7 globals */
 m7_cam_t m7_cam;
+
 u16 floor_winh[SCREEN_HEIGHT + 1], wall_winh[SCREEN_HEIGHT + 1];
 BG_AFFINE floor_bgaff_arr[SCREEN_HEIGHT+1], wall_bgaff_arr[SCREEN_HEIGHT+1];
 m7_level_t floor_level, wall_level;
+
+m7_obj_t m7_obj_arr[M7_OBJ_COUNT];
 
 static const m7_cam_t m7_cam_default = {
 	{ 8 << FIX_SHIFT, 2 << FIX_SHIFT, 2 << FIX_SHIFT }, /* pos */
@@ -232,6 +235,9 @@ int main() {
 
 		/* update affine matrices */
 		m7_prep_affines(&wall_level, &floor_level);
+
+		/* update objects */
+		m7_update_objects(&floor_level);
 
 		/* update hud */
 #ifdef TTE_ENABLED

@@ -6,6 +6,8 @@
 /* mode 7 constants */
 #define PIX_PER_BLOCK 16
 
+#define M7_OBJ_COUNT 32
+
 #define M7_D 160 /* focal length */
 #define M7_D_SHIFT 8 /* focal shift */
 #define M7_RENORM_SHIFT 2 /* renormalization shift */
@@ -45,6 +47,16 @@ typedef struct _m7_level_t {
 	const FIXED *extent_widths, *extent_offs;
 } m7_level_t;
 
+typedef struct _m7_obj_t {
+	VECTOR pos;
+	POINT anchor;
+	OBJ_ATTR obj;
+	s16 phi;
+	u8 obj_id;
+	u8 aff_id;
+	TILE *tiles;
+} m7_obj_t;
+
 typedef struct {
 	FIXED inv_fov;
 	FIXED inv_fov_x_ppb;
@@ -52,6 +64,7 @@ typedef struct {
 } m7_precompute;
 
 /* accessible both from main and iwram */
+extern m7_obj_t m7_obj_arr[M7_OBJ_COUNT];
 extern m7_level_t floor_level, wall_level;
 extern m7_precompute pre;
 
@@ -62,6 +75,9 @@ void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 *winh_arr,
 void m7_rotate(m7_cam_t *cam, int theta);
 void m7_translate_local(m7_level_t *level, const VECTOR *dir);
 void m7_translate_level(m7_level_t *level, const VECTOR *dir);
+
+/* object functions */
+void m7_update_objects(const m7_level_t * level);
 
 /* iwram code */
 IWRAM_CODE void m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3);

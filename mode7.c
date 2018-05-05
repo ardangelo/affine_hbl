@@ -75,3 +75,15 @@ void m7_translate_level(m7_level_t *level, const VECTOR *dir) {
 	cam->pos.y += dir->y;
 	cam->pos.z += ((cam->u.z * dir->x) + (cam->u.x * dir->z)) >> 8;
 }
+
+
+void m7_update_objects(const m7_level_t *level) {
+	for(int i = 0; i < M7_OBJ_COUNT; i++) {
+		m7_prep_sprite(level, &m7_obj_arr[i]);
+	}
+
+	/* update oam */
+	for(int i = 0; i < M7_OBJ_COUNT; i++) {
+		obj_copy(&oam_mem[i], &m7_obj_arr[i].obj, 1);
+	}
+}
