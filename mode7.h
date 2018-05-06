@@ -1,5 +1,5 @@
-#ifndef MAIN_H_
-#define MAIN_H_
+#ifndef MODE7_H_
+#define MODE7_H_
 
 #include <tonc.h>
 
@@ -20,7 +20,8 @@
 #define M7_FAR_OBJ  512  /* far plane for objects */
 #define M7_FAR_BG   768  /* far plane for floor */
 
-/* mode 7 types */
+/* mode 7 classes */
+
 class M7Camera {
 public:
 	VECTOR pos;
@@ -44,10 +45,10 @@ public:
 	u16 bgcnt; /* BGxCNT for floor */
 
 	const int *blocks;
-	int blocks_width, blocks_height, blocks_depth;
-	FIXED *extent_widths, *extent_offs;
+	int blocksWidth, blocksHeight, blocksDepth;
+	FIXED *extentWidths, *extentOffs;
 
-	FIXED texture_width, texture_height, texture_depth;
+	FIXED textureWidth, textureHeight, textureDepth;
 
 	M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew,
 		FIXED *eo, FIXED fov, const FIXED *extents);
@@ -66,6 +67,8 @@ public:
 	IWRAM_CODE void applyAffines(int vc);
 };
 
+/* general structures */
+
 typedef struct {
 	FIXED inv_fov;
 	FIXED inv_fov_x_ppb;
@@ -75,7 +78,6 @@ typedef struct {
 /* accessible both from main and iwram */
 extern m7_precompute pre;
 extern M7Level fanLevel;
-
 IWRAM_CODE void m7_hbl();
 
 #endif

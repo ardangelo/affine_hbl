@@ -97,16 +97,18 @@ M7Level::prepAffines() {
 	for (int h = 0; h < SCREEN_HEIGHT; h += RAYCAST_FREQ) {
 		init_raycast(cam, h, &rin);
 
-		FIXED lambda = 0;
 		for (int bg = 0; bg < 2; bg++) {
 			/* compute the affines / windows only if raycast finds a renderable wall */
 			if (raycast(maps[bg], &rin, &routs[bg])) {
-				lambda = fxmul(routs[bg].perp_wall_dist, pre.inv_fov_x_ppb);
+				FIXED lambda = fxmul(routs[bg].perp_wall_dist, pre.inv_fov_x_ppb);
 
 				compute_affines(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->bgaff[h]);
 
 				/* extent will correctly size window (texture can be transparent) */
 				compute_windows(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->winh[h]);
+
+				/* for shading. pb and pd aren't used (q_y is implicitly zero) */
+				maps[bg]->bgaff[h].pb = lambda;
 			} else {
 				maps[bg]->bgaff[h].pa = 0;
 				maps[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
@@ -118,9 +120,6 @@ M7Level::prepAffines() {
 				maps[bg]->winh[h + i]  = maps[bg]->winh[h];
 			}
 		}
-
-		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
-		maps[0]->bgaff[h].pb = lambda;
 	}
 
 	/* needed to correctly scale last scanline */
@@ -132,7 +131,8 @@ M7Level::prepAffines() {
 
 /* raycasting implementations */
 
-IWRAM_CODE static void init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr) {
+IWRAM_CODE static void
+init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr) {
 	raycast_input_t rin;
 
 	/* camera position */
@@ -209,7 +209,7 @@ raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr
 			rout.side    = (rin->delta_map_z < 0) ? W_SIDE : E_SIDE;
 		}
 
-		if ((hit = map->blocks[rout.map_y * map->blocks_depth + rout.map_z])) {
+		if ((hit = map->blocks[rout.map_y * map->blocksDepth + rout.map_z])) {
 			/* defined raycast map value 1 to be "end, no texture" */
 			if (hit == 1) {
 				return 0;
@@ -250,9 +250,9 @@ compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_outp
 
 	/* move side to correct texture source */
 	if (((rout->side == E_SIDE) || (rout->side == W_SIDE))) {
-		bg_aff_ptr->dx += int2fx(map->texture_width);
+		bg_aff_ptr->dx += int2fx(map->textureWidth);
 	} else if (rout->side == N_SIDE) {
-		bg_aff_ptr->dx += int2fx(2 * map->texture_width);
+		bg_aff_ptr->dx += int2fx(2 * map->textureWidth);
 	}
 
 	/* calculate angle corrections (angles are .12f) */
@@ -270,19 +270,19 @@ compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_outp
 	/* wrap texture for ceiling */
 	if ((((rout->side == N_SIDE) || (rout->side == S_SIDE)) && (rin->ray_y > 0)) ||
 		(((rout->side == E_SIDE) || (rout->side == W_SIDE)) && (rin->ray_z < 0))) {
-		bg_aff_ptr->dy = fxsub(int2fx(map->texture_depth), bg_aff_ptr->dy);
+		bg_aff_ptr->dy = fxsub(int2fx(map->textureDepth), bg_aff_ptr->dy);
 	}
 
 	/* offset down for bg2 */
 	if (map->bgcnt & BG_PRIO(1)) {
-		bg_aff_ptr->dy += int2fx(map->texture_depth);
+		bg_aff_ptr->dy += int2fx(map->textureDepth);
 	}
 }
 
 IWRAM_CODE static void
 compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, u16 *winh_ptr) {
 	FIXED a_x_offs = fxsub(
-		map->extent_offs[rout->map_y], // origin relative to center of map
+		map->extentOffs[rout->map_y], // origin relative to center of map
 		rin->pos.x // adjust by camera position
 	) * PIX_PER_BLOCK; // scale up to block size
 
@@ -290,11 +290,11 @@ compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_outp
 
 	int draw_start = 1 + M7_RIGHT + fx2int(
 		fxmul(
-			fxsub(a_x_offs, map->extent_widths[rout->map_y]),
+			fxsub(a_x_offs, map->extentWidths[rout->map_y]),
 			inv_lambda));
 	int draw_end = M7_RIGHT + fx2int(
 		fxmul(
-			fxadd(a_x_offs, map->extent_widths[rout->map_y]),
+			fxadd(a_x_offs, map->extentWidths[rout->map_y]),
 			inv_lambda));
 
 	/* clamp to screen size */

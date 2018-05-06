@@ -33,22 +33,22 @@ void M7Camera::rotate(FIXED th) {
 
 M7Map::M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew, FIXED *eo,
 	FIXED fov, const FIXED *extents) :
-	bgcnt(bgc), blocks(bl), blocks_width(bw), blocks_height(bh), blocks_depth(bd),
-	extent_widths(ew), extent_offs(eo) {
+	bgcnt(bgc), blocks(bl), blocksWidth(bw), blocksHeight(bh), blocksDepth(bd),
+	extentWidths(ew), extentOffs(eo) {
 
 	/* calculate texture dimensions */
-	texture_width = blocks_width * PIX_PER_BLOCK;
-	texture_height = blocks_height * PIX_PER_BLOCK;
-	texture_depth = blocks_depth * PIX_PER_BLOCK;
+	textureWidth = blocksWidth * PIX_PER_BLOCK;
+	textureHeight = blocksHeight * PIX_PER_BLOCK;
+	textureDepth = blocksDepth * PIX_PER_BLOCK;
 
 	/* precalculate extent widths */
-	for (int i = 0; i < blocks_height; i++) {
-		extent_widths[i] = fxmul(
+	for (int i = 0; i < blocksHeight; i++) {
+		extentWidths[i] = fxmul(
 			int2fx(
 				(extents[i * 2 + 1] - extents[i * 2])
 				* PIX_PER_BLOCK), // normal extent width
 			fov); // adjust for fov
-		extent_offs[i] = (int2fx(blocks_width + extents[i * 2])) / 2;
+		extentOffs[i] = (int2fx(blocksWidth + extents[i * 2])) / 2;
 	}
 }
 
@@ -69,23 +69,23 @@ void M7Level::translateLocal(const VECTOR *dir) {
 	p.y += ( 0                + cam->v.y * dir->y + cam->w.y * dir->z) >> 8;
 	p.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
 
-	const int map_x = fx2int(p.x);
-	const int map_y = fx2int(p.y);
-	const int map_z = fx2int(p.z);
+	const int mapX = fx2int(p.x);
+	const int mapY = fx2int(p.y);
+	const int mapZ = fx2int(p.z);
 
 	/* update x */
-	if ((0 <= map_x) && (map_x <= m->blocks_width)) {
+	if ((0 <= mapX) && (mapX <= m->blocksWidth)) {
 		cam->pos.x = p.x;
 	}
 
 	/* check y / z wall collision independently */
-	if ((map_y >= 0) && (map_y < m->blocks_height)) {
-		if (m->blocks[(map_y * m->blocks_depth) + fx2int(cam->pos.z)] == 0) {
+	if ((mapY >= 0) && (mapY < m->blocksHeight)) {
+		if (m->blocks[(mapY * m->blocksDepth) + fx2int(cam->pos.z)] == 0) {
 			cam->pos.y = p.y;
 		}
 	}
-	if ((map_x >= 0) && (map_z < m->blocks_depth)) {
-		if (m->blocks[(fx2int(cam->pos.y) * m->blocks_depth) + map_z] == 0) {
+	if ((mapX >= 0) && (mapZ < m->blocksDepth)) {
+		if (m->blocks[(fx2int(cam->pos.y) * m->blocksDepth) + mapZ] == 0) {
 			cam->pos.z = p.z;
 		}
 	}
