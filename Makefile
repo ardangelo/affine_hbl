@@ -1,7 +1,7 @@
 PATH := $(DEVKITARM)/bin:$(PATH)
 include $(DEVKITARM)/gba_rules
 
-CC			:= arm-none-eabi-gcc
+CC			:= arm-none-eabi-g++
 GRIT		:= grit
 
 INCLUDE	:= -Iinclude
@@ -14,7 +14,7 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CFLAGS	:= $(INCLUDE) -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
+CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl
@@ -53,12 +53,12 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-mode7.iwram.o : mode7.iwram.c mode7.h
-	$(CC) $(CFLAGS) $(IARCH) -c mode7.iwram.c -o mode7.iwram.o
-mode7.o : mode7.c mode7.h
-	$(CC) $(CFLAGS) $(RARCH) -c mode7.c -o mode7.o
-main.o : main.c $(GFX_HEADERS)
-	$(CC) $(CFLAGS) $(RARCH) -c main.c -o main.o
+mode7.iwram.o : mode7.iwram.cpp mode7.h
+	$(CC) $(CPPFLAGS) $(IARCH) -c mode7.iwram.cpp -o mode7.iwram.o
+mode7.o : mode7.cpp mode7.h
+	$(CC) $(CPPFLAGS) $(RARCH) -c mode7.cpp -o mode7.o
+main.o : main.cpp $(GFX_HEADERS)
+	$(CC) $(CPPFLAGS) $(RARCH) -c main.cpp -o main.o
 
 CODE_OBJS := main.o mode7.o mode7.iwram.o
 

@@ -22,6 +22,7 @@ m7_precompute pre;
 /* raycasting prototypes */
 
 typedef struct {
+	VECTOR pos;
 	FIXED dist_y_0, dist_z_0;
 	FIXED delta_map_y, delta_map_z;
 	FIXED delta_dist_y, delta_dist_z;
@@ -29,31 +30,37 @@ typedef struct {
 	int map_y_0, map_z_0;
 } raycast_input_t;
 
+
+enum sides {N_SIDE, S_SIDE, E_SIDE, W_SIDE};
 typedef struct {
-	enum {N_SIDE, S_SIDE, E_SIDE, W_SIDE} side;
+	enum sides side;
 	FIXED perp_wall_dist;
 	FIXED dist_y, dist_z;
 	int map_y, map_z;
 } raycast_output_t;
 
-IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr);
-IWRAM_CODE static int raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr);
-IWRAM_CODE static void compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
-IWRAM_CODE static void compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr);
-IWRAM_CODE void m7_prep_sprite(const m7_level_t *level, m7_obj_t *spr);
+IWRAM_CODE static void init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr);
+IWRAM_CODE static int raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr);
+IWRAM_CODE static void compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
+IWRAM_CODE static void compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, u16 *winh_ptr);
 
-/* public function implementations */
+/* M7Level affine / window calculation implementations */
 
-IWRAM_CODE void
-m7_hbl() {
+IWRAM_CODE
+void m7_hbl() {
+	fanLevel.HBlank();
+}
+
+inline IWRAM_CODE void
+M7Level::HBlank() {
 	int vc = REG_VCOUNT;
 
 	/* apply wall (secondary) affine */
 	BG_AFFINE *bga;
-	REG_BG_AFFINE[3] = wall_level.bgaff[vc + 1];
+	REG_BG_AFFINE[3] = maps[1]->bgaff[vc + 1];
 
 	/* hide the wall (bg2) if applicable by flipping to mode 1 */
-	bga = &wall_level.bgaff[(vc + 2) > SCREEN_HEIGHT ? 0 : vc + 2];
+	bga = &maps[1]->bgaff[(vc + 2) > SCREEN_HEIGHT ? 0 : vc + 2];
 	static int wall_hidden = 0;
 	if (!wall_hidden && (bga->pa == 0)) {
 		REG_DISPCNT = (REG_DISPCNT & ~DCNT_MODE2) | DCNT_MODE1;
@@ -64,7 +71,7 @@ m7_hbl() {
 	}
 
 	/* apply floor (primary) affine */
-	bga = &floor_level.bgaff[vc + 1];
+	bga = &maps[0]->bgaff[vc + 1];
 	REG_BG_AFFINE[2] = *bga;
 
 	/* apply shading */
@@ -72,24 +79,20 @@ m7_hbl() {
 	if (ey > 16) { ey = 16; }
 	REG_BLDY = BLDY_BUILD(ey);
 
-	/* apply windowing */
 	if (!wall_hidden) {
 		/* todo: use win0 and win1 instead of just combining into win0 */
-		u8 draw_start = MIN(floor_level.winh[vc + 1] >> 8, wall_level.winh[vc + 1] >> 8);
-		u8 draw_end  = MAX(floor_level.winh[vc + 1] & 0xFF, wall_level.winh[vc + 1] & 0xFF);
+		u8 draw_start = MIN(maps[0]->winh[vc + 1] >> 8, maps[1]->winh[vc + 1] >> 8);
+		u8 draw_end  = MAX(maps[0]->winh[vc + 1] & 0xFF, maps[1]->winh[vc + 1] & 0xFF);
 		REG_WIN0H = WIN_BUILD(draw_end, draw_start);
 	} else {
-		REG_WIN0H = floor_level.winh[vc + 1];
+		REG_WIN0H = maps[0]->winh[vc + 1];
 	}
 }
 
 IWRAM_CODE void
-m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
+M7Level::prepAffines() {
 	raycast_input_t rin;
 	raycast_output_t routs[2];
-	m7_level_t *levels[2] = {level_2, level_3};
-
-	m7_cam_t *cam = level_2->camera;
 
 	for (int h = 0; h < SCREEN_HEIGHT; h += RAYCAST_FREQ) {
 		init_raycast(cam, h, &rin);
@@ -97,40 +100,43 @@ m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3) {
 		FIXED lambda = 0;
 		for (int bg = 0; bg < 2; bg++) {
 			/* compute the affines / windows only if raycast finds a renderable wall */
-			if (raycast(levels[bg], &rin, &routs[bg])) {
+			if (raycast(maps[bg], &rin, &routs[bg])) {
 				lambda = fxmul(routs[bg].perp_wall_dist, pre.inv_fov_x_ppb);
 
-				compute_affines(levels[bg], &rin, &routs[bg], lambda, &levels[bg]->bgaff[h]);
+				compute_affines(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->bgaff[h]);
 
 				/* extent will correctly size window (texture can be transparent) */
-				compute_windows(levels[bg], routs[bg].map_y, lambda, &levels[bg]->winh[h]);
+				compute_windows(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->winh[h]);
 			} else {
-				levels[bg]->bgaff[h].pa = 0;
-				levels[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
+				maps[bg]->bgaff[h].pa = 0;
+				maps[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
 			}
 
 			/* duplicate affine matrices if rendering low-res */
 			for (int i = 1; i < RAYCAST_FREQ; i++) {
-				levels[bg]->bgaff[h + i] = levels[bg]->bgaff[h];
-				levels[bg]->winh[h + i]  = levels[bg]->winh[h];
+				maps[bg]->bgaff[h + i] = maps[bg]->bgaff[h];
+				maps[bg]->winh[h + i]  = maps[bg]->winh[h];
 			}
 		}
 
 		/* for shading. pb and pd aren't used (q_y is implicitly zero) */
-		level_3->bgaff[h].pb = lambda;
+		maps[0]->bgaff[h].pb = lambda;
 	}
 
 	/* needed to correctly scale last scanline */
 	for (int bg = 0; bg < 2; bg++) {
-		levels[bg]->bgaff[SCREEN_HEIGHT] = levels[bg]->bgaff[0];
-		levels[bg]->winh[SCREEN_HEIGHT]  = levels[bg]->winh[0];
+		maps[bg]->bgaff[SCREEN_HEIGHT] = maps[bg]->bgaff[0];
+		maps[bg]->winh[SCREEN_HEIGHT]  = maps[bg]->winh[0];
 	}
 }
 
 /* raycasting implementations */
 
-IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t *rin_ptr) {
+IWRAM_CODE static void init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr) {
 	raycast_input_t rin;
+
+	/* camera position */
+	rin.pos = cam->pos;
 
 	/* sines and cosines of pitch */
 	FIXED cos_theta = cam->v.y; // 8f
@@ -183,7 +189,7 @@ IWRAM_CODE static void init_raycast(const m7_cam_t *cam, int h, raycast_input_t 
 }
 
 IWRAM_CODE static int
-raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *rout_ptr) {
+raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr) {
 	raycast_output_t rout;
 
 	rout.dist_y = rin->dist_y_0;
@@ -203,7 +209,7 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 			rout.side    = (rin->delta_map_z < 0) ? W_SIDE : E_SIDE;
 		}
 
-		if ((hit = level->blocks[rout.map_y * level->blocks_width + rout.map_z])) {
+		if ((hit = map->blocks[rout.map_y * map->blocks_depth + rout.map_z])) {
 			/* defined raycast map value 1 to be "end, no texture" */
 			if (hit == 1) {
 				return 0;
@@ -215,13 +221,13 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 	if ((rout.side == N_SIDE) || (rout.side == S_SIDE)) {
 		rout.perp_wall_dist = fxmul(
 			fxadd(
-				fxsub(int2fx(rout.map_y), level->camera->pos.y),
+				fxsub(int2fx(rout.map_y), rin->pos.y),
 				int2fx(1 - rin->delta_map_y) / 2),
 			rin->inv_ray_y);
 	} else {
 		rout.perp_wall_dist = fxmul(
 			fxadd(
-				fxsub(int2fx(rout.map_z), level->camera->pos.z),
+				fxsub(int2fx(rout.map_z), rin->pos.z),
 				int2fx(1 - rin->delta_map_z) / 2),
 			rin->inv_ray_z);
 	}
@@ -234,32 +240,27 @@ raycast(const m7_level_t *level, const raycast_input_t *rin, raycast_output_t *r
 }
 
 IWRAM_CODE static void
-compute_affines(const m7_level_t *level, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr) {
-
-	/* location vector */
-	FIXED a_x = level->camera->pos.x; // 8f
-	FIXED a_y = level->camera->pos.y; // 8f
-	FIXED a_z = level->camera->pos.z; // 8f
+compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr) {
 
 	/* scaling */
 	bg_aff_ptr->pa = lambda;
 
 	/* camera x-position */
-	bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), a_x * PIX_PER_BLOCK);
+	bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), rin->pos.x * PIX_PER_BLOCK);
 
 	/* move side to correct texture source */
 	if (((rout->side == E_SIDE) || (rout->side == W_SIDE))) {
-		bg_aff_ptr->dx += int2fx(level->texture_width);
+		bg_aff_ptr->dx += int2fx(map->texture_width);
 	} else if (rout->side == N_SIDE) {
-		bg_aff_ptr->dx += int2fx(level->texture_height);
+		bg_aff_ptr->dx += int2fx(2 * map->texture_width);
 	}
 
 	/* calculate angle corrections (angles are .12f) */
 	FIXED correction;
 	if ((rout->side == N_SIDE) || (rout->side == S_SIDE)) {
-		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_z), a_z);
+		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_z), rin->pos.z);
 	} else {
-		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_y), a_y);
+		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_y), rin->pos.y);
 	}
 	correction *= PIX_PER_BLOCK;
 
@@ -269,31 +270,31 @@ compute_affines(const m7_level_t *level, const raycast_input_t *rin, const rayca
 	/* wrap texture for ceiling */
 	if ((((rout->side == N_SIDE) || (rout->side == S_SIDE)) && (rin->ray_y > 0)) ||
 		(((rout->side == E_SIDE) || (rout->side == W_SIDE)) && (rin->ray_z < 0))) {
-		bg_aff_ptr->dy = fxsub(int2fx(level->texture_height), bg_aff_ptr->dy);
+		bg_aff_ptr->dy = fxsub(int2fx(map->texture_depth), bg_aff_ptr->dy);
 	}
 
 	/* offset down for bg2 */
-	if (level->bgcnt & BG_PRIO(1)) {
-		bg_aff_ptr->dy += int2fx(level->texture_height);
+	if (map->bgcnt & BG_PRIO(1)) {
+		bg_aff_ptr->dy += int2fx(map->texture_depth);
 	}
 }
 
 IWRAM_CODE static void
-compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr) {
+compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, u16 *winh_ptr) {
 	FIXED a_x_offs = fxsub(
-		level->extent_offs[map_y], // origin relative to center of level
-		level->camera->pos.x // adjust by camera position
+		map->extent_offs[rout->map_y], // origin relative to center of map
+		rin->pos.x // adjust by camera position
 	) * PIX_PER_BLOCK; // scale up to block size
 
 	FIXED inv_lambda = fxdiv(int2fx(1), lambda);
 
 	int draw_start = 1 + M7_RIGHT + fx2int(
 		fxmul(
-			fxsub(a_x_offs, level->extent_widths[map_y]),
+			fxsub(a_x_offs, map->extent_widths[rout->map_y]),
 			inv_lambda));
 	int draw_end = M7_RIGHT + fx2int(
 		fxmul(
-			fxadd(a_x_offs, level->extent_widths[map_y]),
+			fxadd(a_x_offs, map->extent_widths[rout->map_y]),
 			inv_lambda));
 
 	/* clamp to screen size */
@@ -301,9 +302,4 @@ compute_windows(const m7_level_t *level, int map_y, FIXED lambda, u16 *winh_ptr)
 	draw_end = CLAMP(draw_end, 0, SCREEN_WIDTH + 1);
 
 	*winh_ptr = WIN_BUILD((u8)draw_end, (u8)draw_start);
-}
-
-IWRAM_CODE void
-m7_prep_sprite(const m7_level_t *level, m7_obj_t *spr) {
-	
 }

@@ -21,7 +21,8 @@
 #define M7_FAR_BG   768  /* far plane for floor */
 
 /* mode 7 types */
-typedef struct _m7_cam_t {
+class M7Camera {
+public:
 	VECTOR pos;
 
 	int theta; /* polar angle */
@@ -31,31 +32,39 @@ typedef struct _m7_cam_t {
 	VECTOR w; /* local z-axis */
 
 	FIXED fov;
-} m7_cam_t;
 
-typedef struct _m7_level_t {
-	m7_cam_t *camera;
-	u16 *winh; /* window 0 widths */
+	M7Camera(FIXED f);
+	void rotate(FIXED th);
+};
 
-	BG_AFFINE *bgaff; /* affine parameter array */
+class M7Map {
+public:
+	u16 winh[SCREEN_HEIGHT + 1]; /* window 0 widths */
+	BG_AFFINE bgaff[SCREEN_HEIGHT + 1]; /* affine parameter array */
 	u16 bgcnt; /* BGxCNT for floor */
 
 	const int *blocks;
-	int blocks_width, blocks_height;
-	FIXED pixels_per_block, a_x_range;
-	int texture_width, texture_height;
-	const FIXED *extent_widths, *extent_offs;
-} m7_level_t;
+	int blocks_width, blocks_height, blocks_depth;
+	FIXED *extent_widths, *extent_offs;
 
-typedef struct _m7_obj_t {
-	VECTOR pos;
-	POINT anchor;
-	OBJ_ATTR obj;
-	s16 phi;
-	u8 obj_id;
-	u8 aff_id;
-	TILE *tiles;
-} m7_obj_t;
+	FIXED texture_width, texture_height, texture_depth;
+
+	M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew,
+		FIXED *eo, FIXED fov, const FIXED *extents);
+};
+
+class M7Level {
+public:
+	M7Camera *cam;
+	M7Map* maps[2];
+
+	M7Level(M7Camera *c, M7Map *m1, M7Map *m2);
+	void translateLocal(const VECTOR *dir);
+
+	IWRAM_CODE void HBlank();
+	IWRAM_CODE void prepAffines();
+	IWRAM_CODE void applyAffines(int vc);
+};
 
 typedef struct {
 	FIXED inv_fov;
@@ -64,23 +73,9 @@ typedef struct {
 } m7_precompute;
 
 /* accessible both from main and iwram */
-extern m7_obj_t m7_obj_arr[M7_OBJ_COUNT];
-extern m7_level_t floor_level, wall_level;
 extern m7_precompute pre;
+extern M7Level fanLevel;
 
-/* level functions */
-void m7_init(m7_level_t *level, m7_cam_t *cam, BG_AFFINE bgaff[], u16 *winh_arr, u16 bgcnt, int bgno);
-
-/* camera functions */
-void m7_rotate(m7_cam_t *cam, int theta);
-void m7_translate_local(m7_level_t *level, const VECTOR *dir);
-void m7_translate_level(m7_level_t *level, const VECTOR *dir);
-
-/* object functions */
-void m7_update_objects(const m7_level_t * level);
-
-/* iwram code */
-IWRAM_CODE void m7_prep_affines(m7_level_t *level_2, m7_level_t *level_3);
 IWRAM_CODE void m7_hbl();
 
 #endif
