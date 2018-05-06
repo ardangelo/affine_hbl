@@ -1,0 +1,3 @@
+[submodule "Kvasir"]
+	path = Kvasir
+	url = https://github.com/LegalizeAdulthood/Kvasir.git

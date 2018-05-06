@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include <tonc.h>
+#include <Chip/Unknown/Nintendo/GBA.hpp>
 
 #include "mode7.h"
 
