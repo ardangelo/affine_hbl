@@ -7,8 +7,8 @@ public:
 	NamedInt() : value_(0) {}
 	NamedInt(int value) : value_(value) {}
 	NamedInt(const NamedInt<Parameter>& other) : value_(other.value_) {}
-	constexpr int get() { return value_; }
-	constexpr operator int() { return value_; }
+	constexpr int get() const { return value_; }
+	constexpr operator int() const { return value_; }
 
 	NamedInt<Parameter>& operator=(const NamedInt<Parameter>& rhs) {
 		value_ = rhs.value_;
@@ -37,6 +37,10 @@ public:
 
 	constexpr NamedInt<Parameter> operator/(const NamedInt<Parameter>& rhs) {
 		return NamedInt<Parameter>(value_ / rhs.value_);
+	}
+
+	constexpr NamedInt<Parameter> operator/(int rhs) {
+		return NamedInt<Parameter>(value_ / rhs);
 	}
 private:
 	int value_;

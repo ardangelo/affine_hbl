@@ -14,7 +14,7 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CPPFLAGS:= $(INCLUDE) -std=c++11 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
+CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl

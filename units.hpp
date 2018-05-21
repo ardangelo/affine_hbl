@@ -1,6 +1,8 @@
 #ifndef UNITS_HPP_
 #define UNITS_HPP_
 
+#include <optional>
+
 #include "strongtypes.hpp"
 
 template <typename T>
@@ -31,5 +33,10 @@ struct Vector {
 using FixedPixel = NamedInt<struct FixedPixelParameter>;
 using FixedAngle = NamedInt<struct FixedAngleParameter>;
 using Block = NamedInt<struct BlockParameter>;
+
+
+constexpr Point<Block> operator Point<Block>(const Point<FixedPixel>& p) {
+	return {Block(fx2int(int(p.a))), Block(fx2int(int(p.b)))};
+}
 
 #endif

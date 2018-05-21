@@ -4,15 +4,6 @@
 
 #include "mode7.h"
 
-#define FSH 8
-#define FSC (1 << FSH)
-
-#define fx2int(fx) (fx/FSC)
-#define fxadd(fa,fb) (fa + fb)
-#define fxsub(fa, fb) (fa - fb)
-#define fxmul(fa, fb) ((fa*fb)>>FSH)
-#define fxdiv(fa, fb) (((fa)*FSC)/(fb))
-
 #define RAYCAST_FREQ 1
 #define TRIG_ANGLE_MAX 0xFFFF
 
@@ -68,24 +59,22 @@ M7Level::HBlank() {
 
 IWRAM_CODE void
 M7Level::prepAffines() {
-	raycast_input_t rin;
-	raycast_output_t routs[2];
-
 	for (int h = 0; h < SCREEN_HEIGHT; h += RAYCAST_FREQ) {
-		init_raycast(cam, h, &rin);
+		const Ray rin(cam.pos, h);
 
 		for (int bg = 0; bg < 2; bg++) {
 			/* compute the affines / windows only if raycast finds a renderable wall */
-			if (raycast(maps[bg], &rin, &routs[bg])) {
-				FIXED lambda = fxmul(routs[bg].perp_wall_dist, pre.inv_fov_x_ppb);
+			const std::optional<Ray::Casted>& rout = rin.cast(*maps[bg]);
+			if (rout) {
+				const FixedPixel lambda = rout->perp_wall_dist * pre.inv_fov_x_ppb;
 
-				compute_affines(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->bgaff[h]);
+				compute_affines(*maps[bg], rin, rout, lambda, h);
 
 				/* extent will correctly size window (texture can be transparent) */
-				compute_windows(maps[bg], &rin, &routs[bg], lambda, &maps[bg]->winh[h]);
+				compute_windows(*maps[bg], rin, rout, lambda, h);
 
 				/* for shading. pb and pd aren't used (q_y is implicitly zero) */
-				maps[bg]->bgaff[h].pb = lambda;
+				maps[bg]->bgaff[h].pb = lambda.get();
 			} else {
 				maps[bg]->bgaff[h].pa = 0;
 				maps[bg]->winh[h]     = WIN_BUILD(M7_RIGHT, M7_RIGHT);
@@ -108,94 +97,86 @@ M7Level::prepAffines() {
 
 /* raycasting implementations */
 
-IWRAM_CODE static void
-init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr) {
-	raycast_input_t rin;
-
-	/* camera position */
-	rin.pos = cam->pos;
+IWRAM_CODE
+Ray(const Vector<FixedPixel>& origin_, const FixedPixel& fov, int h) : origin(origin_) {
 
 	/* sines and cosines of pitch */
-	FIXED cos_theta = cam->v.y; // 8f
-	FIXED sin_theta = cam->w.y; // 8f
+	const Point<FixedPixel> sin_cos_theta = {cam->v.y, cam->w.y};
+	const Point<FixedPixel> neg_cos_sin_theta = {-cam->v.y, cam->w.y};
 
 	/* precomputed: x_c ray intersect in camera plane */
 
 	/* ray components in world space */
-	rin.ray_y = fxadd(sin_theta, fxmul(fxmul(cam->fov, cos_theta), pre.x_cs[h]));
-	if (rin.ray_y == 0) { rin.ray_y = 1; }
-	rin.ray_z = fxsub(cos_theta, fxmul(fxmul(cam->fov, sin_theta), pre.x_cs[h]));
-	if (rin.ray_z == 0) { rin.ray_z = 1; }
+	ray = sin_cos_theta + (fov * neg_cos_sin_theta) * pre.x_cs[h];
 
 	/* map coordinates */
-	rin.map_y_0 = fx2int(cam->pos.y);
-	rin.map_z_0 = fx2int(cam->pos.z);
+	map_0 = Point<Block>(origin_);
 
 	/* ray lengths to next x / z side */
-	rin.inv_ray_y = fxdiv(int2fx(1), rin.ray_y);
-	rin.delta_dist_y = ABS(rin.inv_ray_y);
-	rin.inv_ray_z = fxdiv(int2fx(1), rin.ray_z);
-	rin.delta_dist_z = ABS(rin.inv_ray_z);
+	inv_ray = ABS(FixedPixel(1) / ray);
 
 	/* initialize map / distance steps */
-	if (rin.ray_y < 0) {
-		rin.delta_map_y = -1;
+	Block deltaMapY, deltaMapZ;
+	FixedPixel distY, distZ;
+	if (ray.a < 0) {
+		deltaMapY = Block(-1);
+		distY = (origin_.a - FixedPixel(int2fx(map_0.a))) * deltaDist.a;
 		rin.dist_y_0 = fxmul(
 			fxsub(cam->pos.y, int2fx(rin.map_y_0)),
 			rin.delta_dist_y);
 	} else {
-		rin.delta_map_y = 1;
+		deltaMapY = Block(1);
 		rin.dist_y_0 = fxmul(
 			fxsub(int2fx(rin.map_y_0 + 1), cam->pos.y),
 			rin.delta_dist_y);
 	}
 	if (rin.ray_z < 0) {
-		rin.delta_map_z = -1;
+		deltaMapZ = Block(-1);
 		rin.dist_z_0 = fxmul(
 			fxsub(cam->pos.z, int2fx(rin.map_z_0)),
 			rin.delta_dist_z);
 	} else {
-		rin.delta_map_z = 1;
+		deltaMapZ = Block(1);
 		rin.dist_z_0 = fxmul(
 			fxsub(int2fx(rin.map_z_0 + 1), cam->pos.z),
 			rin.delta_dist_z);
 	}
+	deltaMap = {deltaMapY, deltaMapZ};
 
 	/* apply raytrace preparation */
 	*rin_ptr = rin;
 }
 
-IWRAM_CODE static int
-raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr) {
-	raycast_output_t rout;
+IWRAM_CODE const std::optional<Ray::Casted>&
+Ray::cast(const M7Map& map) {
+	Ray::Casted rout;
 
-	rout.dist_y = rin->dist_y_0;
-	rout.dist_z = rin->dist_z_0;
-	rout.map_y  = rin->map_y_0;
-	rout.map_z  = rin->map_z_0;
+	rout.dist = rin.dist_0;
+	rout.map  = rout.map_0;
+
+	/* for casting, vector comp 'a' is y, 'b' is z */
 	int hit = 0;
-
 	while (!hit) {
-		if (rout.dist_y < rout.dist_z) {
-			rout.dist_y += rin->delta_dist_y;
-			rout.map_y  += rin->delta_map_y;
-			rout.side    = (rin->delta_map_y < 0) ? N_SIDE : S_SIDE;
+		if (rout.dist.a < rout.dist.b) {
+			rout.dist.a += delta_dist.a;
+			rout.map.a  += delta_map.a;
+			rout.side    = (delta_map.a < 0) ? Ray::sides::N : Ray::sides::S;
 		} else {
-			rout.dist_z += rin->delta_dist_z;
-			rout.map_z  += rin->delta_map_z;
-			rout.side    = (rin->delta_map_z < 0) ? W_SIDE : E_SIDE;
+			rout.dist.b += delta_dist.b;
+			rout.map.b  += delta_map.b;
+			rout.side    = (delta_map.b < 0) ? Ray::sides::W : Ray::sides::E;
 		}
 
-		if ((hit = map->blocks[rout.map_y * map->blocksDepth + rout.map_z])) {
+		if ((hit = map.blocks[rout.map.b * map->blocks.z + rout.map.b])) {
 			/* defined raycast map value 1 to be "end, no texture" */
 			if (hit == 1) {
-				return 0;
+				return std::nullopt;
 			}
 		}
 	}
 
 	/* calculate wall distance */
-	if ((rout.side == N_SIDE) || (rout.side == S_SIDE)) {
+	if ((rout.side == Ray::sides::N) || (rout.side == Ray::sides::S)) {
 		rout.perp_wall_dist = fxmul(
 			fxadd(
 				fxsub(int2fx(rout.map_y), rin->pos.y),
@@ -226,15 +207,15 @@ compute_affines(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const
 	bg_aff_ptr->dx = fxadd(fxmul(lambda, int2fx(M7_LEFT)), rin->pos.x * PIX_PER_BLOCK);
 
 	/* move side to correct texture source */
-	if (((rout->side == E_SIDE) || (rout->side == W_SIDE))) {
+	if (((rout->side == Ray::sides::E) || (rout->side == Ray::sides::W))) {
 		bg_aff_ptr->dx += int2fx(map->textureWidth);
-	} else if (rout->side == N_SIDE) {
+	} else if (rout->side == Ray::sides::N) {
 		bg_aff_ptr->dx += int2fx(2 * map->textureWidth);
 	}
 
 	/* calculate angle corrections (angles are .12f) */
 	FIXED correction;
-	if ((rout->side == N_SIDE) || (rout->side == S_SIDE)) {
+	if ((rout->side == Ray::sides::N) || (rout->side == Ray::sides::S)) {
 		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_z), rin->pos.z);
 	} else {
 		correction = fxadd(fxmul(rout->perp_wall_dist, rin->ray_y), rin->pos.y);
@@ -245,8 +226,10 @@ compute_affines(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const
 	bg_aff_ptr->dy = correction;
 
 	/* wrap texture for ceiling */
-	if ((((rout->side == N_SIDE) || (rout->side == S_SIDE)) && (rin->ray_y > 0)) ||
-		(((rout->side == E_SIDE) || (rout->side == W_SIDE)) && (rin->ray_z < 0))) {
+	if ((((rout->side == Ray::sides::N) ||
+		  (rout->side == Ray::sides::S)) && (rin->ray_y > 0)) ||
+		(((rout->side == Ray::sides::E) ||
+		  (rout->side == Ray::sides::W)) && (rin->ray_z < 0))) {
 		bg_aff_ptr->dy = fxsub(int2fx(map->textureDepth), bg_aff_ptr->dy);
 	}
 

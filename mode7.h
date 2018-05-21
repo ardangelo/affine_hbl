@@ -78,10 +78,10 @@ public:
 
 class Ray {
 private:
-	enum sides {N_SIDE, S_SIDE, E_SIDE, W_SIDE};
 	const Vector<FixedPixel>& origin;
 
 public:
+	enum sides {N, S, E, W};
 	const Point<FixedPixel> dist_0, deltaDist, ray, invRay;
 	const Point<Block> map_0, deltaMap;
 
@@ -94,7 +94,7 @@ public:
 		Point<Block> map;
 	} Casted;
 
-	IWRAM_CODE const Casted& cast(const M7Map& map);
+	IWRAM_CODE const std::optional<Casted>& cast(const M7Map& map);
 };
 
 /* general structures */

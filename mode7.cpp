@@ -41,13 +41,11 @@ M7Map::M7Map(u16 bgc, const int *bl, const Vector<Block>& bD, const Block *exten
 		FixedPixel(bD.z.get() * PIX_PER_BLOCK)};
 
 	/* precalculate extent widths */
-	for (int i = 0; i < blocksDim.y; i++) {
-		extentWidths[i] = fxmul(
-			int2fx(
-				(extents[i * 2 + 1] - extents[i * 2])
-				* PIX_PER_BLOCK), // normal extent width
+	for (int i = 0; i < int(blocksDim.y); i++) {
+		extentWidths[i] = FixedPixel(
+			((extents[i * 2 + 1] - extents[i * 2]) * PIX_PER_BLOCK) * // normal extent width
 			fov); // adjust for fov
-		extentOffs[i] = (int2fx(blocksDim.x + extents[i * 2])) / 2;
+		extentOffs[i] = FixedPixel((blocksDim.x + extents[i * 2]) / 2);
 	}
 }
 
