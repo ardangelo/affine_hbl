@@ -1,48 +1,25 @@
+#include <utility>
+
 #include <tonc.h>
 
 #include "mode7.h"
 
-#define RAYCAST_FREQ 1
-
 #define FSH 8
 #define FSC (1 << FSH)
-#define FSC_F ((float)FSC)
 
 #define fx2int(fx) (fx/FSC)
-#define fx2float(fx) (fx/FSC_F)
 #define fxadd(fa,fb) (fa + fb)
 #define fxsub(fa, fb) (fa - fb)
 #define fxmul(fa, fb) ((fa*fb)>>FSH)
 #define fxdiv(fa, fb) (((fa)*FSC)/(fb))
 
+#define RAYCAST_FREQ 1
 #define TRIG_ANGLE_MAX 0xFFFF
 
-m7_precompute pre;
+M7Precompute pre;
 
-/* raycasting prototypes */
-
-typedef struct {
-	VECTOR pos;
-	FIXED dist_y_0, dist_z_0;
-	FIXED delta_map_y, delta_map_z;
-	FIXED delta_dist_y, delta_dist_z;
-	FIXED ray_y, ray_z, inv_ray_y, inv_ray_z;
-	int map_y_0, map_z_0;
-} raycast_input_t;
-
-
-enum sides {N_SIDE, S_SIDE, E_SIDE, W_SIDE};
-typedef struct {
-	enum sides side;
-	FIXED perp_wall_dist;
-	FIXED dist_y, dist_z;
-	int map_y, map_z;
-} raycast_output_t;
-
-IWRAM_CODE static void init_raycast(const M7Camera *cam, int h, raycast_input_t *rin_ptr);
-IWRAM_CODE static int raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr);
-IWRAM_CODE static void compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr);
-IWRAM_CODE static void compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, u16 *winh_ptr);
+static IWRAM_CODE compute_affine(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const FixedPixel& lambda, int h);
+static IWRAM_CODE compute_window(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const FixedPixel& lambda, int h);
 
 /* M7Level affine / window calculation implementations */
 
@@ -240,7 +217,7 @@ raycast(const M7Map *map, const raycast_input_t *rin, raycast_output_t *rout_ptr
 }
 
 IWRAM_CODE static void
-compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, BG_AFFINE *bg_aff_ptr) {
+compute_affines(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const FixedPixel& lambda, int h) {
 
 	/* scaling */
 	bg_aff_ptr->pa = lambda;
@@ -280,7 +257,7 @@ compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_outp
 }
 
 IWRAM_CODE static void
-compute_windows(const M7Map *map, const raycast_input_t *rin, const raycast_output_t *rout, FIXED lambda, u16 *winh_ptr) {
+compute_windows(const M7Map& map, const Ray& rin, const Ray::Casted& rout, const FixedPixel& lambda, int h) {
 	FIXED a_x_offs = fxsub(
 		map->extentOffs[rout->map_y], // origin relative to center of map
 		rin->pos.x // adjust by camera position

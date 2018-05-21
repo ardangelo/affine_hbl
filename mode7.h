@@ -3,6 +3,8 @@
 
 #include <tonc.h>
 
+#include "units.hpp"
+
 /* mode 7 constants */
 #define PIX_PER_BLOCK 16
 
@@ -24,59 +26,87 @@
 
 class M7Camera {
 public:
-	VECTOR pos;
+	Vector<FixedPixel> pos;
 
-	int theta; /* polar angle */
-	int phi; /* azimuth angle */
-	VECTOR u; /* local x-axis */
-	VECTOR v; /* local y-axis */
-	VECTOR w; /* local z-axis */
+	FixedAngle theta; /* polar angle */
+	FixedAngle phi; /* azimuth angle */
+	Vector<FixedPixel> u; /* local x-axis */
+	Vector<FixedPixel> v; /* local y-axis */
+	Vector<FixedPixel> w; /* local z-axis */
 
-	FIXED fov;
+	const FixedPixel& fov;
 
-	M7Camera(FIXED f);
-	void rotate(FIXED th);
+	M7Camera(const FixedPixel& f);
+	void rotate(const FixedAngle& th);
 };
 
 class M7Map {
 public:
-	u16 winh[SCREEN_HEIGHT + 1]; /* window 0 widths */
+	u16 winh[SCREEN_HEIGHT + 1]; /* window parameter array */
 	BG_AFFINE bgaff[SCREEN_HEIGHT + 1]; /* affine parameter array */
-	u16 bgcnt; /* BGxCNT for floor */
+	const u16 bgcnt; /* BGxCNT for floor */
 
 	const int *blocks;
-	int blocksWidth, blocksHeight, blocksDepth;
-	FIXED *extentWidths, *extentOffs;
+	const Vector<Block> blocksDim;
 
-	FIXED textureWidth, textureHeight, textureDepth;
+	const Block height;
+	FixedPixel *extentWidths;
+	FixedPixel *extentOffs;
 
-	M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew,
-		FIXED *eo, FIXED fov, const FIXED *extents);
+	Vector<FixedPixel> textureDim;
+
+	M7Map(u16 bgc, const int *bl, const Vector<Block>& bD,
+		const Block *extents,
+		FixedPixel *eW, FixedPixel *eO, /* pointer to statically allocated storage */
+		const FixedPixel& fov);
 };
 
 class M7Level {
 public:
-	M7Camera *cam;
-	M7Map* maps[2];
+	M7Camera& cam;
+	const M7Map* maps[2];
 
-	M7Level(M7Camera *c, M7Map *m1, M7Map *m2);
-	void translateLocal(const VECTOR *dir);
+	M7Level(M7Camera& c, const M7Map *m1, const M7Map *m2);
+	void translateLocal(const Vector<FixedPixel>& dir);
 
 	IWRAM_CODE void HBlank();
 	IWRAM_CODE void prepAffines();
 	IWRAM_CODE void applyAffines(int vc);
 };
 
+/* raycasting classes */
+
+class Ray {
+private:
+	enum sides {N_SIDE, S_SIDE, E_SIDE, W_SIDE};
+	const Vector<FixedPixel>& origin;
+
+public:
+	const Point<FixedPixel> dist_0, deltaDist, ray, invRay;
+	const Point<Block> map_0, deltaMap;
+
+	IWRAM_CODE Ray(const Vector<FixedPixel>& origin, int h);
+
+	typedef struct {
+		enum sides sideHit;
+		FixedPixel perpWallDist;
+		Point<FixedPixel> dist;
+		Point<Block> map;
+	} Casted;
+
+	IWRAM_CODE const Casted& cast(const M7Map& map);
+};
+
 /* general structures */
 
 typedef struct {
-	FIXED inv_fov;
-	FIXED inv_fov_x_ppb;
-	FIXED x_cs[SCREEN_HEIGHT];
-} m7_precompute;
+	FixedPixel inv_fov;
+	FixedPixel inv_fov_x_ppb;
+	FixedPixel x_cs[SCREEN_HEIGHT];
+} M7Precompute;
 
 /* accessible both from main and iwram */
-extern m7_precompute pre;
+extern M7Precompute pre;
 extern M7Level fanLevel;
 IWRAM_CODE void m7_hbl();
 

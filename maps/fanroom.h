@@ -1,6 +1,15 @@
 #ifndef FANROOM_H_
 #define FANROOM_H_
 
+#include "../units.hpp"
+
+static const Block bl0 = Block(0);
+static const Block bl8 = Block(8);
+static const Block bl16 = Block(16);
+static const Block bl32 = Block(32);
+
+const Vector<Block> fanroomDim = Vector<Block>{Block(16), Block(16), Block(32)};
+
 const int fanroomFloorBlocks[16 * 32] = {
   2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,
   2,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,2,
@@ -20,12 +29,12 @@ const int fanroomFloorBlocks[16 * 32] = {
   2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2
 };
 
-const int floorExtents[16 * 2] = {
-	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
-	0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16, 0,16,
+const Block floorExtents[16 * 2] = {
+	bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16,
+	bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16,
 };
-FIXED floorExtentWidths[16];
-FIXED floorExtentOffs[16];
+FixedPixel floorExtentWidths[16];
+FixedPixel floorExtentOffs[16];
 
 const int fanroomWallBlocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,
@@ -46,11 +55,11 @@ const int fanroomWallBlocks[16 * 32] = {
   1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1
 };
 
-const int wallExtents[16 * 2] = {
-	0,16, 8,16, 8,16, 8,16, 0,16, 0,16, 0,16, 0,16,
-	8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16, 8,16
+const Block wallExtents[16 * 2] = {
+	bl0,bl16, bl8,bl16, bl8,bl16, bl8,bl16, bl0,bl16, bl0,bl16, bl0,bl16, bl0,bl16,
+	bl8,bl16, bl8,bl16, bl8,bl16, bl8,bl16, bl8,bl16, bl8,bl16, bl8,bl16, bl8,bl16
 };
-FIXED wallExtentWidths[16];
-FIXED wallExtentOffs[16];
+FixedPixel wallExtentWidths[16];
+FixedPixel wallExtentOffs[16];
 
 #endif
