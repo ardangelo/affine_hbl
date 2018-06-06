@@ -1,5 +1,8 @@
-#include <limits.h>
 #include <tonc.h>
+#include <Chip/Unknown/Nintendo/GBA.hpp>
+
+#include <Register/Register.hpp>
+using namespace Kvasir::Register;
 
 #include "mode7.h"
 
@@ -31,9 +34,11 @@ void M7Camera::rotate(FIXED th) {
 	w = {0, st, ct};
 }
 
-M7Map::M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew, FIXED *eo,
-	FIXED fov, const FIXED *extents) :
-	bgcnt(bgc), blocks(bl), blocksWidth(bw), blocksHeight(bh), blocksDepth(bd),
+M7Map::M7Map(int cbb, int sbb, int prio, Kvasir::BackgroundSizes size,
+		const int *bl, int bw, int bh, int bd,
+		FIXED *ew, FIXED *eo, const FIXED *extents, FIXED fov) :
+	charBaseBlock(cbb), screenBaseBlock(sbb), priority(prio), bgSize(size),
+	blocks(bl), blocksWidth(bw), blocksHeight(bh), blocksDepth(bd),
 	extentWidths(ew), extentOffs(eo) {
 
 	/* calculate texture dimensions */
@@ -56,9 +61,27 @@ M7Level::M7Level(M7Camera *c, M7Map *m1, M7Map *m2) : cam(c) {
 	maps[0] = m1;
 	maps[1] = m2;
 
+	/* init sfrs */
+	REG_BG3CNT = 0;
+	REG_BG2CNT = 0;
+
 	/* apply background control regs */
-	REG_BG3CNT = m1->bgcnt;
-	REG_BG2CNT = m2->bgcnt;
+	{
+		using namespace Kvasir::BG3CNT;
+		apply(
+			write(bgPriority, m1->priority),
+			write(characterBaseBlock, m1->charBaseBlock),
+			write(screenBaseBlock, m1->screenBaseBlock),
+			write(screenSize, m1->bgSize));
+	}
+	{
+		using namespace Kvasir::BG2CNT;
+		apply(
+			write(bgPriority, m2->priority),
+			write(characterBaseBlock, m2->charBaseBlock),
+			write(screenBaseBlock, m2->screenBaseBlock),
+			write(screenSize, m2->bgSize));
+	}
 }
 
 void M7Level::translateLocal(const VECTOR *dir) {

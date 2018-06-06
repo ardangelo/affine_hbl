@@ -4,6 +4,9 @@
 #include <tonc.h>
 #include <Chip/Unknown/Nintendo/GBA.hpp>
 
+#include <Register/Register.hpp>
+using namespace Kvasir::Register;
+
 #include "mode7.h"
 
 #include "gfx/fanroom.h"
@@ -34,14 +37,12 @@ char *dbg_str;
 /* m7 globals */
 
 M7Camera cam(fxdiv(int2fx(M7_TOP), int2fx(M7_D)));
-M7Map floorMap(
-	BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(FLOOR_PRIO),
+M7Map floorMap(M7_CBB, FLOOR_SBB, FLOOR_PRIO, Kvasir::BackgroundSizes::aff128x128,
 	fanroomFloorBlocks, 16, 16, 32, floorExtentWidths, floorExtentOffs,
-	cam.fov, floorExtents);
-M7Map wallMap(
-	BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(WALL_PRIO),
+	floorExtents, cam.fov);
+M7Map wallMap(M7_CBB, FLOOR_SBB, WALL_PRIO, Kvasir::BackgroundSizes::aff128x128,
 	fanroomWallBlocks, 16, 16, 32, wallExtentWidths, wallExtentOffs,
-	cam.fov, wallExtents);
+	wallExtents, cam.fov);
 M7Level fanLevel(&cam, &floorMap, &wallMap);
 
 /* implementations */
@@ -66,7 +67,15 @@ void init_map() {
 	pal_bg_mem[0] = CLR_GRAY / 2;
 
 	/* registers */
-	REG_DISPCNT = DCNT_MODE2 | DCNT_BG2 | DCNT_BG3 | DCNT_OBJ | DCNT_OBJ_1D | DCNT_WIN0;
+	REG_DISPCNT = 0;
+	{ using namespace Kvasir::DISPCNT;
+		apply(
+			write(bgMode, BackgroundModes::mode2),
+			set(screenDisplayBg2, screenDisplayBg3, screenDisplayObj),
+			write(objCharacterVramMapping,
+				ObjCharacterVramMappingMode::oneDim),
+			set(window0DisplayFlag));
+	}
 }
 
 const FIXED OMEGA =  0x400;

@@ -46,12 +46,12 @@ IWRAM_CODE static void compute_windows(const M7Map *map, const raycast_input_t *
 
 /* M7Level affine / window calculation implementations */
 
-IWRAM_CODE
-void m7_hbl() {
+IWRAM_CODE void
+m7_hbl() {
 	fanLevel.HBlank();
 }
 
-inline IWRAM_CODE void
+IWRAM_CODE void
 M7Level::HBlank() {
 	int vc = REG_VCOUNT;
 
@@ -274,7 +274,7 @@ compute_affines(const M7Map *map, const raycast_input_t *rin, const raycast_outp
 	}
 
 	/* offset down for bg2 */
-	if (map->bgcnt & BG_PRIO(1)) {
+	if (map->priority == 3) {
 		bg_aff_ptr->dy += int2fx(map->textureDepth);
 	}
 }

@@ -2,6 +2,7 @@
 #define MODE7_H_
 
 #include <tonc.h>
+#include <Chip/Unknown/Nintendo/GBA.hpp>
 
 /* mode 7 constants */
 #define PIX_PER_BLOCK 16
@@ -42,7 +43,10 @@ class M7Map {
 public:
 	u16 winh[SCREEN_HEIGHT + 1]; /* window 0 widths */
 	BG_AFFINE bgaff[SCREEN_HEIGHT + 1]; /* affine parameter array */
-	u16 bgcnt; /* BGxCNT for floor */
+
+	/* background control information */
+	const int charBaseBlock, screenBaseBlock, priority;
+	const Kvasir::BackgroundSizes bgSize;
 
 	const int *blocks;
 	int blocksWidth, blocksHeight, blocksDepth;
@@ -50,8 +54,9 @@ public:
 
 	FIXED textureWidth, textureHeight, textureDepth;
 
-	M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew,
-		FIXED *eo, FIXED fov, const FIXED *extents);
+	M7Map(int cbb, int sbb, int prio, Kvasir::BackgroundSizes size,
+		const int *bl, int bw, int bh, int bd,
+		FIXED *ew, FIXED *eo, const FIXED *extents, FIXED fov);
 };
 
 class M7Level {
@@ -67,7 +72,7 @@ public:
 	IWRAM_CODE void applyAffines(int vc);
 };
 
-/* general structures */
+/* general structures  */
 
 typedef struct {
 	FIXED inv_fov;
