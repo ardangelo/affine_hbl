@@ -1,5 +1,8 @@
 #include <tonc.h>
 
+#include <Register/Register.hpp>
+using namespace Kvasir::Register;
+
 #include "mode7.h"
 
 #define RAYCAST_FREQ 1
@@ -53,11 +56,12 @@ m7_hbl() {
 
 IWRAM_CODE void
 M7Level::HBlank() {
-	int vc = REG_VCOUNT;
+	BG_AFFINE *bga;
+	int vc = apply(read(Kvasir::VCOUNT::currentScanline));
 
 	/* apply wall (secondary) affine */
-	BG_AFFINE *bga;
-	REG_BG_AFFINE[3] = maps[1]->bgaff[vc + 1];
+	bga = &maps[1]->bgaff[vc + 1];
+	REG_BG_AFFINE[3] = *bga;
 
 	/* hide the wall (bg2) if applicable by flipping to mode 1 */
 	bga = &maps[1]->bgaff[(vc + 2) > SCREEN_HEIGHT ? 0 : vc + 2];

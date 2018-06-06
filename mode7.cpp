@@ -61,21 +61,17 @@ M7Level::M7Level(M7Camera *c, M7Map *m1, M7Map *m2) : cam(c) {
 	maps[0] = m1;
 	maps[1] = m2;
 
-	/* init sfrs */
-	REG_BG3CNT = 0;
-	REG_BG2CNT = 0;
-
 	/* apply background control regs */
-	{
-		using namespace Kvasir::BG3CNT;
+	REG_BG3CNT = 0;
+	{ using namespace Kvasir::BG3CNT;
 		apply(
 			write(bgPriority, m1->priority),
 			write(characterBaseBlock, m1->charBaseBlock),
 			write(screenBaseBlock, m1->screenBaseBlock),
 			write(screenSize, m1->bgSize));
 	}
-	{
-		using namespace Kvasir::BG2CNT;
+	REG_BG2CNT = 0;
+	{ using namespace Kvasir::BG2CNT;
 		apply(
 			write(bgPriority, m2->priority),
 			write(characterBaseBlock, m2->charBaseBlock),

@@ -14,12 +14,25 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CPPFLAGS:= $(INCLUDE) -std=c++11 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
+CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
+DEBUGCPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -O1 -save-temps -Wall -ffast-math -fno-strict-aliasing
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl
 
 all: $(ROMNAME).gba
+
+kvasir-s: kvasir.s
+	arm-none-eabi-as -mthumb-interwork -o kvasir.o kvasir.s
+	$(CC) kvasir.o $(LDFLAGS) -o kvasir.elf
+	arm-none-eabi-objcopy -v -O binary kvasir.elf kvasir.gba
+	gbafix kvasir.gba -t$kvasir
+
+kvasir-cpp: kvasir.cpp
+	$(CC) $(DEBUGCPPFLAGS) $(RARCH) -c kvasir.cpp -o kvasir.o
+	$(CC) kvasir.o $(LDFLAGS) -o kvasir.elf
+	arm-none-eabi-objcopy -v -O binary kvasir.elf kvasir.gba
+	gbafix kvasir.gba -t$kvasir
 
 # compile the background resources
 

@@ -61,12 +61,26 @@ void init_map() {
 	}
 
 	/* setup shadow fade */
-	REG_BLDCNT = BLD_BUILD(BLD_BG2 | BLD_BG3, BLD_BACKDROP, 3);
-	REG_WININ = WININ_BUILD(WIN_BG2 | WIN_BG3 | WIN_BLD, 0);
-	REG_WIN0V = SCREEN_HEIGHT;
+	REG_BLDCNT = 0;
+	{ using namespace Kvasir::BLDCNT;
+		apply(
+			set(bg2FirstTargetPixel, bg3FirstTargetPixel),
+			set(backdropSecondTargetPixel),
+			write(colorSpecialEffect, ColorSpecialEffects::brightnessDecrease));
+	}
+	REG_WININ = 0;
+	{ using namespace Kvasir::WININ;
+		apply(
+			set(window0EnableBg2, window0EnableBg3, window0EnableColorSpecialEffect));
+	}
+	REG_WIN0V = 0;
+	{ using namespace Kvasir::WIN0V;
+		apply(
+			write(y, SCREEN_HEIGHT));
+	}
 	pal_bg_mem[0] = CLR_GRAY / 2;
 
-	/* registers */
+	/* display control register */
 	REG_DISPCNT = 0;
 	{ using namespace Kvasir::DISPCNT;
 		apply(
