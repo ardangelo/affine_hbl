@@ -3,18 +3,16 @@
 
 #include "mode7.h"
 
-M7Camera::M7Camera(FIXED f) {
-	pos = { 8 << FIX_SHIFT, 2 << FIX_SHIFT, 2 << FIX_SHIFT };
-	theta = 0x0000;
-	phi = 0x0;
+M7::Camera::Camera(FIXED f)
+	: pos{ 8 << FIX_SHIFT, 2 << FIX_SHIFT, 2 << FIX_SHIFT }
+	, theta{0x0000}
+	, phi{0x0}
+	, u{1 << FIX_SHIFT, 0, 0}
+	, v{0, 1 << FIX_SHIFT, 0}
+	, w{0, 0, 1 << FIX_SHIFT}
+	, fov{f} {}
 
-	u = {1 << FIX_SHIFT, 0, 0};
-	v = {0, 1 << FIX_SHIFT, 0};
-	w = {0, 0, 1 << FIX_SHIFT};
-	fov = f;
-}
-
-void M7Camera::rotate(FIXED th) {
+void M7::Camera::rotate(FIXED th) {
 	/* limited to fixpoint range */
 	th &= 0xFFFF;
 
@@ -31,22 +29,30 @@ void M7Camera::rotate(FIXED th) {
 	w = {0, st, ct};
 }
 
-M7Map::M7Map(u16 bgc, FIXED fov)
-	: bgcnt(bgc) {}
+M7::Layer::Layer(
+			size_t cbb, const unsigned int tiles[],
+			size_t sbb, const unsigned short map[],
+			size_t mapSize, size_t prio,
+			FIXED fov)
+	: bgcnt(BG_CBB(cbb) | BG_SBB(sbb) | mapSize | BG_PRIO(prio)) {
 
-M7Level::M7Level(M7Camera *c, M7Map *m1)
-	: cam{c}
-	, map{m1} {
-
-	/* apply background control regs */
-	REG_BG2CNT = m1->bgcnt;
+	LZ77UnCompVram(tiles, tile_mem[cbb]);
+	LZ77UnCompVram(map,   se_mem[sbb]);
 }
 
-void M7Level::translateLocal(const VECTOR *dir) {
-	VECTOR p = cam->pos;
-	p.x += (cam->u.x * dir->x + cam->v.x * dir->y + cam->w.x * dir->z) >> 8;
-	p.y += ( 0                + cam->v.y * dir->y + cam->w.y * dir->z) >> 8;
-	p.z += (cam->u.z * dir->x + cam->v.z * dir->y + cam->w.z * dir->z) >> 8;
+M7::Level::Level(M7::Camera const& cam_, M7::Layer& layer_)
+	: cam{cam_}
+	, layer{layer_} {
+
+	/* apply background control regs */
+	REG_BG2CNT = layer.bgcnt;
+}
+
+void M7::Level::translateLocal(VECTOR const& dir) {
+	VECTOR p = cam.pos;
+	p.x += (cam.u.x * dir.x + cam.v.x * dir.y + cam.w.x * dir.z) >> 8;
+	p.y += (0               + cam.v.y * dir.y + cam.w.y * dir.z) >> 8;
+	p.z += (cam.u.z * dir.x + cam.v.z * dir.y + cam.w.z * dir.z) >> 8;
 
 	const int mapX = fx2int(p.x);
 	const int mapY = fx2int(p.y);

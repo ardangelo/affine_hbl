@@ -1,66 +1,74 @@
-#ifndef MODE7_H_
-#define MODE7_H_
+#pragma once
 
 #include <tonc.h>
 
-/* mode 7 constants */
-#define PIX_PER_BLOCK 16
+#include <array>
 
-#define M7_OBJ_COUNT 32
+namespace M7 {
 
-#define M7_D 160 /* focal length */
-#define M7_D_SHIFT 8 /* focal shift */
-#define M7_RENORM_SHIFT 2 /* renormalization shift */
+	/* mode 7 constants */
+	namespace k {
+		size_t static const screenHeight = SCREEN_HEIGHT;
+		FIXED static const focalLength   =  160;
+		FIXED static const focalShift    =  8;
+		FIXED static const renormShift   =  2;
+		FIXED static const viewLeft      = -120;
+		FIXED static const viewRight     =  120;
+		FIXED static const viewTop       =  80;
+		FIXED static const viewBottom    = -80;
+		FIXED static const nearPlane     =  24;
+		FIXED static const objFarPlane   =  512;
+		FIXED static const floorFarPlane = 768;
+	}
 
-#define M7_LEFT   (-120) /* viewport left */
-#define M7_RIGHT    120  /* viewport right */
-#define M7_TOP       80  /* viewport top */
-#define M7_BOTTOM  (-80) /* viewport bottom */
-#define M7_NEAR      24  /* near plane for objects */
-#define M7_FAR_OBJ  512  /* far plane for objects */
-#define M7_FAR_BG   768  /* far plane for floor */
+	/* mode 7 classes */
+	class Camera {
+	public:
+		VECTOR pos;
+		/* rotation angles */
+		int theta; /* polar angle */
+		int phi; /* azimuth angle */
+		/* space basis */
+		VECTOR u; /* local x-axis */
+		VECTOR v; /* local y-axis */
+		VECTOR w; /* local z-axis */
+		/* rendering */
+		FIXED fov;
 
-/* mode 7 classes */
+		Camera(FIXED f);
+		void rotate(FIXED th);
+	};
 
-class M7Camera {
-public:
-	VECTOR pos;
+	class Layer {
+	public: // types
+		template <typename T>
+		using ScreenArray = std::array<T, k::screenHeight + 1>;
 
-	int theta; /* polar angle */
-	int phi; /* azimuth angle */
-	VECTOR u; /* local x-axis */
-	VECTOR v; /* local y-axis */
-	VECTOR w; /* local z-axis */
+	public: // variables
+		ScreenArray<u16> winh; /* window 0 widths */
+		ScreenArray<BG_AFFINE> bgaff; /* affine parameter array */
+		u16 bgcnt; /* BGxCNT for floor */
 
-	FIXED fov;
+		Layer(
+			size_t cbb, const unsigned int tiles[],
+			size_t sbb, const unsigned short map[],
+			size_t mapSize, size_t prio,
+			FIXED fov);
+	};
 
-	M7Camera(FIXED f);
-	void rotate(FIXED th);
-};
+	class Level {
+	public:
+		Camera const& cam;
+		Layer& layer;
 
-class M7Map {
-public:
-	u16 winh[SCREEN_HEIGHT + 1]; /* window 0 widths */
-	BG_AFFINE bgaff[SCREEN_HEIGHT + 1]; /* affine parameter array */
-	u16 bgcnt; /* BGxCNT for floor */
+		Level(Camera const& cam, Layer& layer);
+		void translateLocal(VECTOR const& dir);
 
-	M7Map(u16 bgc, FIXED fov);
-};
-
-class M7Level {
-public:
-	M7Camera *cam;
-	M7Map* map;
-
-	M7Level(M7Camera *c, M7Map *m1);
-	void translateLocal(const VECTOR *dir);
-
-	IWRAM_CODE void prepAffines();
-	IWRAM_CODE void applyAffines(int vc);
-};
+		IWRAM_CODE void prepAffines();
+		IWRAM_CODE void applyAffines(int vc);
+	};
+}
 
 /* accessible both from main and iwram */
-extern M7Level fanLevel;
+extern M7::Level fanLevel;
 IWRAM_CODE void m7_hbl();
-
-#endif

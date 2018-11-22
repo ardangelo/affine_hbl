@@ -3,6 +3,8 @@
 
 #include <tonc.h>
 
+#include <utility>
+
 #include "mode7.h"
 
 #include "gfx/fanroom.h"
@@ -10,10 +12,9 @@
 
 #include "maps/fanroom.h"
 
-#define DEBUG(fmt, ...)
+#ifdef DEBUG
 #define DEBUGFMT(fmt, ...)
-
-/*
+#else
 #include <stdlib.h>
 char *dbg_str;
 #define DEBUG(str) (nocash_puts(str))
@@ -22,7 +23,7 @@ char *dbg_str;
 		nocash_puts(dbg_str); \
 		free(dbg_str); \
 	} while (0)
-*/
+#endif
 
 /* block mappings */
 #define M7_CBB 0
@@ -32,24 +33,24 @@ char *dbg_str;
 
 /* m7 globals */
 
-M7Camera cam(fxdiv(int2fx(M7_TOP), int2fx(M7_D)));
-M7Map floorMap(
-	BG_CBB(M7_CBB) | BG_SBB(FLOOR_SBB) | BG_AFF_128x128 | BG_PRIO(FLOOR_PRIO),
+M7::Camera cam(fxdiv(int2fx(M7::k::viewTop), int2fx(M7::k::focalLength)));
+M7::Layer floorLayer(
+	M7_CBB,    fanroomTiles,
+	FLOOR_SBB, fanroomMap,
+	BG_AFF_128x128, FLOOR_PRIO,
 	cam.fov);
-M7Level fanLevel(&cam, &floorMap);
+M7::Level fanLevel(cam, floorLayer);
 
 /* implementations */
 
 void init_map() {
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
-	LZ77UnCompVram(fanroomTiles, tile_mem[M7_CBB]);
-	LZ77UnCompVram(fanroomMap, se_mem[FLOOR_SBB]);
 
 	/* setup shadow fade */
 	REG_BLDCNT = BLD_BUILD(BLD_BG2, BLD_BACKDROP, 3);
-	REG_WININ = WININ_BUILD(WIN_BG2 | WIN_BLD, 0);
-	REG_WIN0V = SCREEN_HEIGHT;
+	REG_WININ  = WININ_BUILD(WIN_BG2 | WIN_BLD, 0);
+	REG_WIN0V  = M7::k::screenHeight;
 	pal_bg_mem[0] = CLR_GRAY / 2;
 
 	/* registers */
@@ -59,17 +60,19 @@ void init_map() {
 const FIXED OMEGA =  0x400;
 const FIXED VEL_X =  0x1 << 8;
 const FIXED VEL_Z = -0x1 << 8;
-void input_game(VECTOR *dir) {
+auto input_game(M7::Camera const& cam) {
 	key_poll();
 
-	/* strafe */
-	dir->x = VEL_X * key_tri_shoulder();
-
-	/* forwards / backwards */
-	dir->z = VEL_Z * key_tri_vert();
+	VECTOR dir
+		{ .x = VEL_X * key_tri_shoulder() /* strafe */
+		, .y = 0
+		, .z = VEL_Z * key_tri_vert() /* forwards / backwards */
+	};
 
 	/* rotate */
-	cam.theta -= OMEGA * key_tri_horz();
+	FIXED theta = cam.theta - (OMEGA * key_tri_horz());
+
+	return std::make_pair(dir, theta);
 }
 
 int main() {
@@ -84,10 +87,9 @@ int main() {
 		VBlankIntrWait();
 
 		/* update camera based on input */
-		VECTOR dir = {0, 0, 0};
-		input_game(&dir);
-		cam.rotate(cam.theta);
-		fanLevel.translateLocal(&dir);
+		auto [dir, theta] = input_game(cam);
+		cam.rotate(theta);
+		fanLevel.translateLocal(dir);
 
 		/* update affine matrices */
 		fanLevel.prepAffines();
