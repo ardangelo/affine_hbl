@@ -1,10 +1,10 @@
 #include <tonc.h>
 
-#include <Register/Utility.hpp>
-
 #include <Chip/Unknown/Nintendo/GBA.hpp>
 #include <Register/Register.hpp>
 using namespace Kvasir::Register;
+
+#include <Register/Utility.hpp>
 
 /* RGB15-specific types */
 enum class RGB15ComponentName : std::uint8_t {
@@ -27,17 +27,14 @@ using RawVidMemAddr = Kvasir::Register::Address<offset, 0x0, 0x0, std::uint16_t>
 int main() {
 	__asm("@ zero REG_WIN0V start");
 	REG_WIN0V = 0;
-	__asm("@ zero REG_WIN0V done");
+	__asm("@ zero REG_WIN0V end");
+
 	{ using namespace Kvasir::WIN0V;
 		__asm("@ set REG_WIN0V start");
 		apply(
 			write(y2, SCREEN_HEIGHT));
 		__asm("@ set REG_WIN0V end");
 	}
-
-	__asm("@ read REG_WIN0V start");
-	auto x = apply(read(Kvasir::BG0CNT::screenSize));
-	__asm("@ read REG_WIN0V end");
 
 	while(1) {
 		VBlankIntrWait();

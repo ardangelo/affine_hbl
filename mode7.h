@@ -23,6 +23,15 @@
 
 /* mode 7 classes */
 
+/* https://www.embedded.com/print/4438679
+The criteria for a static initializer to be allowed for a class are:
+- The class must have no base classes.
+- It must have no constructor.
+- It must have no virtual functions.
+- It must have no private or protected members.
+- In addition, we should also require that all member functions of a ROMable class be const.
+*/
+
 class M7Camera {
 public:
 	VECTOR pos;

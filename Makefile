@@ -14,8 +14,9 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
-DEBUGCPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -O1 -save-temps -Wall -ffast-math -fno-strict-aliasing
+CFLAGS	:= $(INCLUDE) -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing
+CPPFLAGS:= $(CFLAGS) -std=c++17 -fno-exceptions -fno-non-call-exceptions -fno-rtti
+DEBUGCPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -O1 -save-temps -Wall -ffast-math -fno-strict-aliasing -fno-use-cxa-atexit -fno-threadsafe-statics
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl
@@ -85,7 +86,7 @@ $(ROMNAME).gba : $(ROMNAME).elf
 	gbafix $(ROMNAME).gba -t$(ROMNAME)
 
 clean :
-	@rm -fv *.gba *.elf
-	@rm -fv *.o
+	@rm -fv *.gba *.elf *.sav
+	@rm -fv *.o *.s *.ii
 	@rm -fv gfx/*.s gfx/*.h gfx/*.o
-	@rm -fv main.s .map
+	@rm -fv .map
