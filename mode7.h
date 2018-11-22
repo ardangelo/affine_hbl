@@ -44,39 +44,22 @@ public:
 	BG_AFFINE bgaff[SCREEN_HEIGHT + 1]; /* affine parameter array */
 	u16 bgcnt; /* BGxCNT for floor */
 
-	const int *blocks;
-	int blocksWidth, blocksHeight, blocksDepth;
-	FIXED *extentWidths, *extentOffs;
-
-	FIXED textureWidth, textureHeight, textureDepth;
-
-	M7Map(u16 bgc, const int *bl, int bw, int bh, int bd, FIXED *ew,
-		FIXED *eo, FIXED fov, const FIXED *extents);
+	M7Map(u16 bgc, FIXED fov);
 };
 
 class M7Level {
 public:
 	M7Camera *cam;
-	M7Map* maps[2];
+	M7Map* map;
 
-	M7Level(M7Camera *c, M7Map *m1, M7Map *m2);
+	M7Level(M7Camera *c, M7Map *m1);
 	void translateLocal(const VECTOR *dir);
 
-	IWRAM_CODE void HBlank();
 	IWRAM_CODE void prepAffines();
 	IWRAM_CODE void applyAffines(int vc);
 };
 
-/* general structures */
-
-typedef struct {
-	FIXED inv_fov;
-	FIXED inv_fov_x_ppb;
-	FIXED x_cs[SCREEN_HEIGHT];
-} m7_precompute;
-
 /* accessible both from main and iwram */
-extern m7_precompute pre;
 extern M7Level fanLevel;
 IWRAM_CODE void m7_hbl();
 
