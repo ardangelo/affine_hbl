@@ -12,12 +12,19 @@ M7::Camera::Camera(FIXED f)
 	, w{0, 0, 1 << FIX_SHIFT}
 	, fov{f} {}
 
-void M7::Camera::rotate(FIXED th) {
-	/* limited to fixpoint range */
-	th &= 0xFFFF;
+void M7::Camera::translate(VECTOR const& dPos) {
+	pos.x += dPos.x;
+	pos.y += dPos.y;
+	pos.z += dPos.z;
+}
 
-	FIXED ct = lu_cos(th) >> 4;
-	FIXED st = lu_sin(th) >> 4;
+void M7::Camera::rotate(FIXED dTheta) {
+	/* limited to fixpoint range */
+	theta += dTheta;
+	theta &= 0xFFFF;
+
+	FIXED ct = lu_cos(dTheta) >> 4;
+	FIXED st = lu_sin(dTheta) >> 4;
 
 	/* camera x-axis */
 	u = {1 << 8, 0, 0};

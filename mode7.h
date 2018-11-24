@@ -36,7 +36,8 @@ namespace M7 {
 		FIXED fov;
 
 		Camera(FIXED f);
-		void rotate(FIXED th);
+		void translate(VECTOR const& dPos);
+		void rotate(FIXED dTheta);
 	};
 
 	class Layer {
