@@ -136,14 +136,19 @@ void render_world() {
 	// Fill screen with grey color
 	m3_fill(RGB15(12, 12, 14));
 
+	// origin
 	plot(origin, CLR_WHITE);
 
+	// camera point
 	auto c_o = origin - Point{fx2int(cam.pos.x), fx2int(cam.pos.z)};
 	plot(c_o, CLR_BLUE);
-
+	// camera fov
 	auto c_d = c_o - Point{M7::k::focalLength, 0}.rot(cam.theta);
 	line(c_o, c_d, CLR_BLUE);
+	auto c_x = c_d - Point{0, -M7::k::viewRight}.rot(cam.theta);
+	line(c_d, c_x, CLR_BLUE);
 
+	// wall1
 	auto w_o = origin - wall1.o;
 	auto w_x = w_o - wall1.x;
 	line(w_o, w_x, CLR_RED);
