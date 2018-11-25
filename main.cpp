@@ -88,8 +88,11 @@ struct Point {
 	Point operator- (Point const& rhs) const {
 		return Point{x - rhs.x, y - rhs.y};
 	}
-	Point operator>>(size_t rhs) const {
-		return Point{x >> rhs, y >> rhs};
+	Point operator* (FIXED const n) const {
+		return Point{n * x, n * y};
+	}
+	Point operator>>(size_t shift) const {
+		return Point{x >> shift, y >> shift};
 	}
 	Point rot(FIXED theta) const;
 };
@@ -145,8 +148,16 @@ void render_world() {
 	// camera fov
 	auto c_d = c_o - Point{M7::k::focalLength, 0}.rot(cam.theta);
 	line(c_o, c_d, CLR_BLUE);
-	auto c_x = c_d - Point{0, -M7::k::viewRight}.rot(cam.theta);
+
+	auto c_x = c_d - Point{0, M7::k::viewRight}.rot(cam.theta);
 	line(c_d, c_x, CLR_BLUE);
+	auto c_xp = c_d - Point{0, M7::k::viewLeft}.rot(cam.theta);
+	line(c_d, c_xp, CLR_SKYBLUE);
+
+	auto r   = c_o - Point{M7::k::focalLength, M7::k::viewRight}.rot(cam.theta) * 4;
+	line(c_o, r, CLR_BLUE);
+	auto rp  = c_o - Point{M7::k::focalLength, M7::k::viewLeft}.rot(cam.theta) * 4;
+	line(c_o, rp, CLR_SKYBLUE);
 
 	// wall1
 	auto w_o = origin - wall1.o;

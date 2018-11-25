@@ -9,6 +9,7 @@ namespace M7 {
 	/* mode 7 constants */
 	namespace k {
 		size_t static const screenHeight = SCREEN_HEIGHT;
+		size_t static const screenWidth  = SCREEN_WIDTH;
 		FIXED static const focalLength   =  160;
 		FIXED static const focalShift    =  8;
 		FIXED static const renormShift   =  2;
@@ -18,7 +19,7 @@ namespace M7 {
 		FIXED static const viewBottom    = -80;
 		FIXED static const nearPlane     =  24;
 		FIXED static const objFarPlane   =  512;
-		FIXED static const floorFarPlane = 768;
+		FIXED static const floorFarPlane =  768;
 	}
 
 	/* mode 7 classes */
