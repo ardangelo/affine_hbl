@@ -4,7 +4,7 @@ include $(DEVKITARM)/gba_rules
 CC			:= arm-none-eabi-g++
 GRIT		:= grit
 
-INCLUDE	:= -Iinclude
+INCLUDE	:= -Iinclude -Iinclude/cnl/include
 LIBS		:= -ltonc -lkrawall
 LIBPATHS	:= -Llib
 
@@ -53,9 +53,9 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-mode7.iwram.o : mode7.iwram.cpp mode7.h
+mode7.iwram.o : mode7.iwram.cpp mode7.h Reg.hpp
 	$(CC) $(CPPFLAGS) $(IARCH) -c mode7.iwram.cpp -o mode7.iwram.o
-mode7.o : mode7.cpp mode7.h
+mode7.o : mode7.cpp mode7.h Reg.hpp
 	$(CC) $(CPPFLAGS) $(RARCH) -c mode7.cpp -o mode7.o
 main.o : main.cpp $(GFX_HEADERS)
 	$(CC) $(CPPFLAGS) $(RARCH) -c main.cpp -o main.o

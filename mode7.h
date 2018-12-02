@@ -4,6 +4,8 @@
 
 #include <array>
 
+#include "Reg.hpp"
+
 namespace M7 {
 
 	/* mode 7 constants */
@@ -48,7 +50,7 @@ namespace M7 {
 
 	public: // variables
 		ScreenArray<u16> winh; /* window 0 widths */
-		ScreenArray<BG_AFFINE> bgaff; /* affine parameter array */
+		ScreenArray<affine::ParamSet> bgaff; /* affine parameter array */
 		u16 bgcnt; /* BGxCNT for floor */
 
 		Layer(
@@ -73,4 +75,5 @@ namespace M7 {
 
 /* accessible both from main and iwram */
 extern M7::Level fanLevel;
+extern Reg reg;
 IWRAM_CODE void m7_hbl();

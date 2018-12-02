@@ -44,7 +44,7 @@ M7::Level fanLevel(cam, floorLayer);
 /* implementations */
 
 void init_map() {
-	#if 0
+	#if 1
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
 
@@ -183,8 +183,8 @@ int main() {
 		auto [dPos, dTheta] = input_game(cam);
 		cam.translate(dPos);
 		cam.rotate(dTheta);
-		#if 0
-		fanLevel.translateLocal(dir);
+		#if 1
+		fanLevel.translateLocal(dPos);
 
 		/* update affine matrices */
 		fanLevel.prepAffines();
