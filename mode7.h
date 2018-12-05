@@ -1,46 +1,67 @@
 #pragma once
 
 #include <tonc.h>
+#undef FIXED
+#undef POINT
+#undef VECTOR
 
 #include <array>
 
+#include "Math.hpp"
 #include "Reg.hpp"
+
+auto static inline luCos(FPi32<4> theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_cos(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
+}
+auto static inline luSin(FPi32<4> theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
+}
+
+template <size_t N>
+auto static inline point_rot(Point<N> const& p, FPi32<4> theta) {
+	return Matrix<-decltype(luCos(theta))::exponent>
+		{ .a =  luCos(theta)
+		, .b = -luSin(theta)
+		, .c =  luSin(theta)
+		, .d =  luCos(theta)
+		} * p;
+}
 
 namespace M7 {
 
 	/* mode 7 constants */
 	namespace k {
-		size_t static const screenHeight = SCREEN_HEIGHT;
-		size_t static const screenWidth  = SCREEN_WIDTH;
-		FIXED static const focalLength   =  160;
-		FIXED static const focalShift    =  8;
-		FIXED static const renormShift   =  2;
-		FIXED static const viewLeft      = -120;
-		FIXED static const viewRight     =  120;
-		FIXED static const viewTop       =  80;
-		FIXED static const viewBottom    = -80;
-		FIXED static const nearPlane     =  24;
-		FIXED static const objFarPlane   =  512;
-		FIXED static const floorFarPlane =  768;
+		size_t static constexpr screenHeight = SCREEN_HEIGHT;
+		size_t static constexpr screenWidth  = SCREEN_WIDTH;
+		int static constexpr focalLength   =  160;
+		int static constexpr focalShift    =  8;
+		int static constexpr renormShift   =  2;
+		int static constexpr viewLeft      = -120;
+		int static constexpr viewRight     =  120;
+		int static constexpr viewTop       =  80;
+		int static constexpr viewBottom    = -80;
+		int static constexpr nearPlane     =  24;
+		int static constexpr objFarPlane   =  512;
+		int static constexpr floorFarPlane =  768;
 	}
 
 	/* mode 7 classes */
 	class Camera {
 	public:
-		VECTOR pos;
+		Vector pos;
 		/* rotation angles */
 		int theta; /* polar angle */
 		int phi; /* azimuth angle */
 		/* space basis */
-		VECTOR u; /* local x-axis */
-		VECTOR v; /* local y-axis */
-		VECTOR w; /* local z-axis */
+		Vector u; /* local x-axis */
+		Vector v; /* local y-axis */
+		Vector w; /* local z-axis */
 		/* rendering */
-		FIXED fov;
+		FPi32<8> fov;
 
-		Camera(FIXED f);
-		void translate(VECTOR const& dPos);
-		void rotate(FIXED dTheta);
+		Camera(FPi32<8> const& fov);
+		void translate(Vector const& dPos);
+		void rotate(FPi32<4> const& dTheta);
 	};
 
 	class Layer {
@@ -57,7 +78,7 @@ namespace M7 {
 			size_t cbb, const unsigned int tiles[],
 			size_t sbb, const unsigned short map[],
 			size_t mapSize, size_t prio,
-			FIXED fov);
+			FPi32<8> fov);
 	};
 
 	class Level {

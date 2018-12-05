@@ -53,9 +53,9 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-mode7.iwram.o : mode7.iwram.cpp mode7.h Reg.hpp
+mode7.iwram.o : mode7.iwram.cpp mode7.h Math.hpp Reg.hpp
 	$(CC) $(CPPFLAGS) $(IARCH) -c mode7.iwram.cpp -o mode7.iwram.o
-mode7.o : mode7.cpp mode7.h Reg.hpp
+mode7.o : mode7.cpp mode7.h Math.hpp Reg.hpp
 	$(CC) $(CPPFLAGS) $(RARCH) -c mode7.cpp -o mode7.o
 main.o : main.cpp $(GFX_HEADERS)
 	$(CC) $(CPPFLAGS) $(RARCH) -c main.cpp -o main.o

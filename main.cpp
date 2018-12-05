@@ -44,7 +44,7 @@ M7::Level fanLevel(cam, floorLayer);
 /* implementations */
 
 void init_map() {
-	#if 1
+	#if 0
 	/* extract main bg */
 	LZ77UnCompVram(bgPal, pal_bg_mem);
 
@@ -61,109 +61,72 @@ void init_map() {
 	#endif
 }
 
-const FIXED OMEGA =  0x400;
-const FIXED VEL_X =  0x1 << 8;
-const FIXED VEL_Z = -0x1 << 8;
+FPi32<4> static constexpr OMEGA =   16;
+FPi32<8> static constexpr VEL_X =   8;
+FPi32<8> static constexpr VEL_Z =  -8;
 auto input_game(M7::Camera const& cam) {
 	key_poll();
 
-	VECTOR dir
+	Vector dir
 		{ .x = VEL_X * key_tri_shoulder() /* strafe */
 		, .y = 0
 		, .z = VEL_Z * key_tri_vert() /* forwards / backwards */
 	};
 
 	/* rotate */
-	FIXED theta = OMEGA * key_tri_horz();
+	auto theta = OMEGA * key_tri_horz();
 
 	return std::make_pair(dir, theta);
 }
 
-struct Point {
-	FIXED const x;
-	FIXED const y;
-	Point operator+ (Point const& rhs) const {
-		return Point{x + rhs.x, y + rhs.y};
+namespace draw {
+	int const static SCALE = 0x3;
+	void inline static plot(Point<0> const& p, COLOR const color) {
+		m3_plot(int(p.x >> SCALE), int(p.y >> SCALE), color);
 	}
-	Point operator- (Point const& rhs) const {
-		return Point{x - rhs.x, y - rhs.y};
-	}
-	Point operator* (FIXED const n) const {
-		return Point{n * x, n * y};
-	}
-	Point operator>>(size_t shift) const {
-		return Point{x >> shift, y >> shift};
-	}
-	Point rot(FIXED theta) const;
-};
 
-struct Matr {
-	FIXED const a;
-	FIXED const b;
-	FIXED const c;
-	FIXED const d;
-
-	Point operator* (Point const& rhs) const {
-		return Point{
-			(a * rhs.x + b * rhs.y),
-			(c * rhs.x + d * rhs.y)
-		};
+	void inline static line(Point<0> const& from, Point<0> const& to, COLOR const color) {
+		m3_line(int(from.x >> SCALE), int(from.y >> SCALE), int(to.x >> SCALE), int(to.y >> SCALE), color);
 	}
-};
-
-Point Point::rot(FIXED theta) const {
-	return Matr{
-		lu_cos(theta), -lu_sin(theta),
-		lu_sin(theta),  lu_cos(theta)
-	} * (*this) >> 12;
 }
 
 struct Quad {
-	Point const o;
-	Point const x;
+	Point<0> const o;
+	Point<0> const x;
 };
 
-FIXED const static SCALE = 0x3;
-void inline static plot(Point const& p, COLOR const color) {
-	m3_plot(p.x >> SCALE, p.y >> SCALE, color);
-}
-
-void inline static line(Point const& from, Point const& to, COLOR const color) {
-	m3_line(from.x >> SCALE, from.y >> SCALE, to.x >> SCALE, to.y >> SCALE, color);
-}
-
-Point constexpr static origin {SCREEN_WIDTH / 2 << SCALE, SCREEN_HEIGHT / 2 << SCALE};
-Quad  constexpr static wall1 {Point{50, 50}, Point{50,-50}};
+Point<0> constexpr static origin {SCREEN_WIDTH / 2 << draw::SCALE, SCREEN_HEIGHT / 2 << draw::SCALE};
+Quad     constexpr static wall1 {{50, 50}, {50,-50}};
 
 void render_world() {
 	// Fill screen with grey color
 	m3_fill(RGB15(12, 12, 14));
 
 	// origin
-	plot(origin, CLR_WHITE);
+	draw::plot(origin, CLR_WHITE);
 
 	// camera point
-	auto c_o = origin - Point{fx2int(cam.pos.x), fx2int(cam.pos.z)};
-	plot(c_o, CLR_BLUE);
+	auto c_o = origin - Point<0>{cam.pos.x, cam.pos.z};
+	draw::plot(c_o, CLR_BLUE);
 	// camera fov
-	auto c_d = c_o - Point{M7::k::focalLength, 0}.rot(cam.theta);
-	line(c_o, c_d, CLR_BLUE);
+	auto c_d = c_o - point_rot(Point<0>{M7::k::focalLength, 0}, cam.theta);
+	draw::line(c_o, c_d, CLR_BLUE);
 
-	auto c_x = c_d - Point{0, M7::k::viewRight}.rot(cam.theta);
-	line(c_d, c_x, CLR_BLUE);
-	auto c_xp = c_d - Point{0, M7::k::viewLeft}.rot(cam.theta);
-	line(c_d, c_xp, CLR_SKYBLUE);
+	auto c_x = c_d - point_rot(Point<0>{0, M7::k::viewRight}, cam.theta);
+	draw::line(c_d, c_x, CLR_BLUE);
+	auto c_xp = c_d - point_rot(Point<0>{0, M7::k::viewLeft}, cam.theta);
+	draw::line(c_d, c_xp, CLR_SKYBLUE);
 
-	auto r   = c_o - Point{M7::k::focalLength, M7::k::viewRight}.rot(cam.theta) * 4;
-	line(c_o, r, CLR_BLUE);
-	auto rp  = c_o - Point{M7::k::focalLength, M7::k::viewLeft}.rot(cam.theta) * 4;
-	line(c_o, rp, CLR_SKYBLUE);
+	auto r   = c_o - point_rot(Point<0>{4 * M7::k::focalLength, 4 * M7::k::viewRight}, cam.theta);
+	draw::line(c_o, r, CLR_BLUE);
+	auto rp  = c_o - point_rot(Point<0>{4 * M7::k::focalLength, 4 * M7::k::viewLeft }, cam.theta);
+	draw::line(c_o, rp, CLR_SKYBLUE);
 
 	// wall1
 	auto w_o = origin - wall1.o;
 	auto w_x = w_o - wall1.x;
-	line(w_o, w_x, CLR_RED);
-	plot(w_o, CLR_YELLOW);
+	draw::line(w_o, w_x, CLR_RED);
+	draw::plot(w_o, CLR_YELLOW);
 }
 
 int main() {
@@ -183,7 +146,7 @@ int main() {
 		auto [dPos, dTheta] = input_game(cam);
 		cam.translate(dPos);
 		cam.rotate(dTheta);
-		#if 1
+		#if 0
 		fanLevel.translateLocal(dPos);
 
 		/* update affine matrices */
