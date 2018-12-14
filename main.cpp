@@ -62,7 +62,7 @@ FPi32<8> static constexpr VEL_Z =  -8;
 auto input_game() {
 	key_poll();
 
-	Vector dir
+	Vector<0> dir
 		{ .x = VEL_X * key_tri_shoulder() /* strafe */
 		, .y = 0
 		, .z = VEL_Z * key_tri_vert() /* forwards / backwards */

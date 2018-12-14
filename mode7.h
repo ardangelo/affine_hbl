@@ -17,12 +17,21 @@ auto static inline luSin(FPi32<4> theta) {
 	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
 }
 
-auto static inline make_rot(FPi32<4> theta) {
+auto static inline make_rot(FPi32<4> const theta, FPi32<4> const phi) {
+	auto const sin_phi   = luSin(phi);
+	auto const sin_theta = luSin(theta);
+	auto const cos_phi   = luCos(phi);
+	auto const cos_theta = luCos(theta);
 	return Matrix<-decltype(luCos(theta))::exponent>
-		{ .a =  luCos(theta)
-		, .b = -luSin(theta)
-		, .c =  luSin(theta)
-		, .d =  luCos(theta)
+		{ .a =  cos_phi
+		, .b =  sin_phi * sin_theta
+		, .c = -sin_phi * cos_theta
+		, .d =  0
+		, .e =  cos_theta
+		, .f =  sin_theta
+		, .g =  sin_phi
+		, .h = -cos_phi * sin_theta
+		, .i =  cos_phi * cos_theta
 		};
 }
 
@@ -47,19 +56,19 @@ namespace M7 {
 	/* mode 7 classes */
 	class Camera {
 	public:
-		Vector pos;
+		Vector<0> pos;
 		/* rotation angles */
 		int theta; /* polar angle */
 		int phi; /* azimuth angle */
 		/* space basis */
-		Vector u; /* local x-axis */
-		Vector v; /* local y-axis */
-		Vector w; /* local z-axis */
+		Vector<12> u; /* local x-axis */
+		Vector<12> v; /* local y-axis */
+		Vector<12> w; /* local z-axis */
 		/* rendering */
 		FPi32<8> fov;
 
 		Camera(FPi32<8> const& fov);
-		void translate(Vector const& dPos);
+		void translate(Vector<0> const& dPos);
 		void rotate(FPi32<4> const& dTheta);
 	};
 
@@ -85,7 +94,7 @@ namespace M7 {
 		Layer& layer;
 
 		Level(Camera const& cam, Layer& layer);
-		void translateLocal(Vector const& dir);
+		void translateLocal(Vector<0> const& dir);
 
 		IWRAM_CODE void prepAffines();
 		IWRAM_CODE void applyAffine(int vc);

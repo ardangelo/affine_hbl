@@ -12,10 +12,8 @@ M7::Camera::Camera(FPi32<8> const& fov_)
 	, w{0, 0, 1}
 	, fov{fov_} {}
 
-void M7::Camera::translate(Vector const& dPos) {
-	pos.x += dPos.x;
-	pos.y += dPos.y;
-	pos.z += dPos.z;
+void M7::Camera::translate(Vector<0> const& dPos) {
+	pos = pos + dPos;
 }
 
 void M7::Camera::rotate(FPi32<4> const& dTheta) {
@@ -23,17 +21,17 @@ void M7::Camera::rotate(FPi32<4> const& dTheta) {
 	theta += dTheta;
 	theta &= 0xFFFF;
 
-	FPi32<8> const ct = luCos(dTheta);
-	FPi32<8> const st = luCos(dTheta);
+	FPi32<8> const cos_theta = luCos(theta);
+	FPi32<8> const sin_theta = luCos(theta);
 
 	/* camera x-axis */
 	u = {1, 0, 0};
 
 	/* camera y-axis */
-	v = {0, ct, -1 * st};
+	v = {0, cos_theta, -1 * sin_theta};
 
 	/* camera z-axis */
-	w = {0, st, ct};
+	w = {0, sin_theta, cos_theta};
 }
 
 M7::Layer::Layer(
@@ -54,7 +52,7 @@ M7::Level::Level(M7::Camera const& cam_, M7::Layer& layer_)
 	REG_BG2CNT = layer.bgcnt;
 }
 
-void M7::Level::translateLocal(Vector const& dir) {
+void M7::Level::translateLocal(Vector<0> const& dir) {
 	Vector p = cam.pos;
 	p.x += (cam.u.x * dir.x + cam.v.x * dir.y + cam.w.x * dir.z);
 	p.y += (0               + cam.v.y * dir.y + cam.w.y * dir.z);
