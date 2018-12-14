@@ -17,14 +17,13 @@ auto static inline luSin(FPi32<4> theta) {
 	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
 }
 
-template <size_t N>
-auto static inline point_rot(Point<N> const& p, FPi32<4> theta) {
+auto static inline make_rot(FPi32<4> theta) {
 	return Matrix<-decltype(luCos(theta))::exponent>
 		{ .a =  luCos(theta)
 		, .b = -luSin(theta)
 		, .c =  luSin(theta)
 		, .d =  luCos(theta)
-		} * p;
+		};
 }
 
 namespace M7 {
@@ -77,8 +76,7 @@ namespace M7 {
 		Layer(
 			size_t cbb, const unsigned int tiles[],
 			size_t sbb, const unsigned short map[],
-			size_t mapSize, size_t prio,
-			FPi32<8> fov);
+			size_t mapSize, size_t prio);
 	};
 
 	class Level {
@@ -87,14 +85,14 @@ namespace M7 {
 		Layer& layer;
 
 		Level(Camera const& cam, Layer& layer);
-		void translateLocal(VECTOR const& dir);
+		void translateLocal(Vector const& dir);
 
 		IWRAM_CODE void prepAffines();
-		IWRAM_CODE void applyAffines(int vc);
+		IWRAM_CODE void applyAffine(int vc);
 	};
 }
 
 /* accessible both from main and iwram */
 extern M7::Level fanLevel;
-extern Reg reg;
+extern Reg volatile reg;
 IWRAM_CODE void m7_hbl();

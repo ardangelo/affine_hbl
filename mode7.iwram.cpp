@@ -1,21 +1,19 @@
 #include <tonc.h>
 
 #include "Reg.hpp"
-Reg reg;
+Reg volatile reg;
 
 #include "mode7.h"
-
-#define TRIG_ANGLE_MAX 0xFFFF
 
 /* M7Level affine / window calculation implementations */
 
 IWRAM_CODE
 void m7_hbl() {
-	fanLevel.applyAffines(REG_VCOUNT);
+	fanLevel.applyAffine(REG_VCOUNT);
 }
 
-inline IWRAM_CODE void
-M7::Level::applyAffines(int const vc) {
+IWRAM_CODE void
+M7::Level::applyAffine(int const vc) {
 	/* apply floor (primary) affine */
 	auto const& bga = layer.bgaff[vc + 1];
 	*reg.bgAffine2 = bga;
@@ -30,6 +28,20 @@ M7::Level::applyAffines(int const vc) {
 
 IWRAM_CODE void
 M7::Level::prepAffines() {
+
+	// world -> cam space
+	AffineSpace camSpace_world = 
+		{ .basis    = make_rot(cam.theta)
+		, .basisInv = make_rot(-cam.theta)
+		, .origin   = Point<0>{cam.pos.x, cam.pos.z}
+		};
+
+	// transform world -> cam space
+	auto origin_cam  = camSpace_world.transform(Point<0>{0, 0});
+
+	// project onto screen space
+	auto origin_y   = origin_cam.y  * M7::k::focalLength / origin_cam.x;
+
 	for (size_t h = 0; h < k::screenHeight; h++) {
 
 		/* set affine matrix for scanline */

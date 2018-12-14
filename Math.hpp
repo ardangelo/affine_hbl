@@ -7,8 +7,7 @@ using FPi32 = cnl::fixed_point<std::int32_t, -FractDigits>;
 
 template <size_t N>
 struct Point {
-	FPi32<N> const x;
-	FPi32<N> const y;
+	FPi32<N> x, y;
 
 	template <size_t M>
 	auto inline operator+ (Point<M> const& rhs) const {
@@ -49,10 +48,7 @@ struct Vector {
 
 template <size_t N>
 struct Matrix {
-	FPi32<N> const a;
-	FPi32<N> const b;
-	FPi32<N> const c;
-	FPi32<N> const d;
+	FPi32<N> a, b, c, d;
 
 	template <size_t M>
 	auto inline operator+ (Matrix<M> const& rhs) const {
@@ -65,10 +61,30 @@ struct Matrix {
 	}
 
 	template <size_t M>
+	auto inline operator* (Matrix<M> const& rhs) const {
+		return Matrix<-decltype(a * rhs.a)::exponent>
+			{ .a = a * rhs.a + b * rhs.c
+			, .b = c * rhs.a + d * rhs.c
+			, .c = a * rhs.b + b * rhs.d
+			, .d = c * rhs.b + d * rhs.d
+			};
+	}
+
+	template <size_t M>
 	auto inline operator* (Point<M> const& rhs) const {
 		return Point<-decltype(a * rhs.x)::exponent>
 			{ .x = a * rhs.x + b * rhs.y
 			, .y = c * rhs.x + d * rhs.y
 			};
+	}
+};
+
+struct AffineSpace {
+	Matrix<12> basis, basisInv;
+	Point<0> origin;
+
+	template <size_t N>
+	auto inline transform(Point<N> const& fromPt) {
+		return basisInv * (fromPt - origin);
 	}
 };

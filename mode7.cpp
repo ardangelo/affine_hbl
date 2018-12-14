@@ -39,8 +39,7 @@ void M7::Camera::rotate(FPi32<4> const& dTheta) {
 M7::Layer::Layer(
 			size_t cbb, const unsigned int tiles[],
 			size_t sbb, const unsigned short map[],
-			size_t mapSize, size_t prio,
-			FPi32<8> fov)
+			size_t mapSize, size_t prio)
 	: bgcnt(BG_CBB(cbb) | BG_SBB(sbb) | mapSize | BG_PRIO(prio)) {
 
 	LZ77UnCompVram(tiles, tile_mem[cbb]);
@@ -55,7 +54,7 @@ M7::Level::Level(M7::Camera const& cam_, M7::Layer& layer_)
 	REG_BG2CNT = layer.bgcnt;
 }
 
-void M7::Level::translateLocal(VECTOR const& dir) {
+void M7::Level::translateLocal(Vector const& dir) {
 	Vector p = cam.pos;
 	p.x += (cam.u.x * dir.x + cam.v.x * dir.y + cam.w.x * dir.z);
 	p.y += (0               + cam.v.y * dir.y + cam.w.y * dir.z);
