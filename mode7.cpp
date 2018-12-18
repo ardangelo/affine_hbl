@@ -4,7 +4,7 @@
 #include "mode7.h"
 
 M7::Camera::Camera(FPi32<8> const& fov_)
-	: pos{8, 2, 2}
+	: pos{0, 160, 0}
 	, theta{0x0000}
 	, phi{0x0}
 	, u{1, 0, 0}

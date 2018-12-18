@@ -101,12 +101,14 @@ auto inline make_basis(Vector<N> const& u, Vector<N> const& v, Vector<N> const& 
 		};
 }
 
+template <size_t N>
 struct AffineSpace {
-	Matrix<12> basis, basisInv;
+	Matrix<N> basis    = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+	Matrix<N> basisInv = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 	Vector<0> origin;
 
-	template <size_t N>
-	auto inline transform(Vector<N> const& fromPt) const {
+	template <size_t M>
+	auto inline transform(Vector<M> const& fromPt) const {
 		return basisInv * (fromPt - origin);
 	}
 };

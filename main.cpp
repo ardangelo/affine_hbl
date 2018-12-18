@@ -56,9 +56,9 @@ void init_map() {
 	REG_DISPCNT = DCNT_MODE2 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
 }
 
-FPi32<4> static constexpr OMEGA =   16;
-FPi32<8> static constexpr VEL_X =   8;
-FPi32<8> static constexpr VEL_Z =  -8;
+FPi32<4> static constexpr OMEGA =   0xF;
+FPi32<0> static constexpr VEL_X =   1;
+FPi32<0> static constexpr VEL_Z =  -1;
 auto input_game() {
 	key_poll();
 
@@ -69,7 +69,7 @@ auto input_game() {
 	};
 
 	/* rotate */
-	auto theta = OMEGA * key_tri_horz();
+	auto const theta = OMEGA * key_tri_horz();
 
 	return std::make_pair(dir, theta);
 }
