@@ -4,8 +4,8 @@
 #include "mode7.h"
 
 M7::Camera::Camera(FPi32<8> const& fov_)
-	: pos{0, 160, 0}
-	, theta{0x0000}
+	: pos{120, 160, 80}
+	, theta{0x3FFF}
 	, phi{0x0}
 	, u{1, 0, 0}
 	, v{0, 1, 0}
@@ -16,7 +16,7 @@ void M7::Camera::translate(Vector<0> const& dPos) {
 	pos = pos + dPos;
 }
 
-void M7::Camera::rotate(FPi32<4> const& dTheta) {
+void M7::Camera::rotate(int32_t const dTheta) {
 	/* limited to fixpoint range */
 	theta += dTheta;
 	theta &= 0xFFFF;

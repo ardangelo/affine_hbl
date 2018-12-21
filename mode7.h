@@ -10,19 +10,20 @@
 #include "Math.hpp"
 #include "Reg.hpp"
 
-auto static inline luCos(FPi32<4> theta) {
-	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_cos(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
+auto static inline luCos(uint32_t const theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_cos(theta & 0xFFFF));
 }
-auto static inline luSin(FPi32<4> theta) {
-	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(cnl::to_rep<decltype(theta)>{}(theta) & 0xFFFF));
+auto static inline luSin(uint32_t const theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(theta & 0xFFFF));
 }
 
-auto static inline make_rot(FPi32<4> const theta, FPi32<4> const phi) {
+auto static inline make_rot(uint32_t const theta, uint32_t const phi) {
 	auto const sin_phi   = luSin(phi);
 	auto const sin_theta = luSin(theta);
 	auto const cos_phi   = luCos(phi);
 	auto const cos_theta = luCos(theta);
 	return Matrix<-decltype(luCos(theta))::exponent>
+	#if 0
 		{ .a =  cos_phi
 		, .b =  sin_phi * sin_theta
 		, .c = -sin_phi * cos_theta
@@ -33,6 +34,18 @@ auto static inline make_rot(FPi32<4> const theta, FPi32<4> const phi) {
 		, .h = -cos_phi * sin_theta
 		, .i =  cos_phi * cos_theta
 		};
+	#else
+		{ .a =  1
+		, .b =  0
+		, .c =  0
+		, .d =  0
+		, .e =  cos_theta
+		, .f =  sin_theta
+		, .g =  0
+		, .h = -sin_theta
+		, .i =  cos_theta
+		};
+	#endif
 }
 
 namespace M7 {
@@ -69,7 +82,7 @@ namespace M7 {
 
 		Camera(FPi32<8> const& fov);
 		void translate(Vector<0> const& dPos);
-		void rotate(FPi32<4> const& dTheta);
+		void rotate(int32_t const dTheta);
 	};
 
 	class Layer {
@@ -105,3 +118,6 @@ namespace M7 {
 extern M7::Level fanLevel;
 extern Reg volatile reg;
 IWRAM_CODE void m7_hbl();
+
+Vector<8> extern t_ul_cam, t_ur_cam, t_bl_cam, t_br_cam;
+Vector<4> extern t_ul_screen, t_ur_screen, t_bl_screen, t_br_screen;

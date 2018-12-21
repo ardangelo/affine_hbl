@@ -108,7 +108,7 @@ struct AffineSpace {
 	Vector<0> origin;
 
 	template <size_t M>
-	auto inline transform(Vector<M> const& fromPt) const {
+	Vector<N> inline transform(Vector<M> const& fromPt) const {
 		return basisInv * (fromPt - origin);
 	}
 };

@@ -1,4 +1,4 @@
-PATH := $(DEVKITARM)/bin:$(PATH)
+PATH := $(DEVKITARM)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
 include $(DEVKITARM)/gba_rules
 
 CC			:= arm-none-eabi-g++
@@ -14,7 +14,7 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing -fno-exceptions -fno-non-call-exceptions -fno-rtti
+CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing -fno-exceptions -fno-non-call-exceptions -fno-rtti -g
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl

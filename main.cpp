@@ -12,18 +12,19 @@
 
 #include "maps/fanroom.h"
 
-#ifdef DEBUG
+#define DEBUG_MODE
+#ifndef DEBUG_MODE
 #define DEBUGFMT(fmt, ...)
 #else
+#include <stdio.h>
 #include <stdlib.h>
-char *dbg_str;
-#define DEBUG(str) (nocash_puts(str))
+#include <stdarg.h>
 #define DEBUGFMT(fmt, ...) do {	  \
-		asprintf(&dbg_str, fmt, __VA_ARGS__); \
-		nocash_puts(dbg_str); \
-		free(dbg_str); \
+		sprintf(nocash_buffer, fmt, __VA_ARGS__); \
+		nocash_message(); \
 	} while (0)
 #endif
+
 
 /* block mappings */
 #define M7_CBB 0
@@ -56,22 +57,22 @@ void init_map() {
 	REG_DISPCNT = DCNT_MODE2 | DCNT_BG2 | DCNT_OBJ | DCNT_OBJ_1D;
 }
 
-FPi32<4> static constexpr OMEGA =   0xF;
+int32_t  static constexpr OMEGA =   0xF;
 FPi32<0> static constexpr VEL_X =   1;
 FPi32<0> static constexpr VEL_Z =  -1;
 auto input_game() {
 	key_poll();
 
-	Vector<0> dir
+	Vector<0> dPos
 		{ .x = VEL_X * key_tri_shoulder() /* strafe */
 		, .y = 0
 		, .z = VEL_Z * key_tri_vert() /* forwards / backwards */
 	};
 
 	/* rotate */
-	auto const theta = OMEGA * key_tri_horz();
+	int32_t const dTheta = (OMEGA * key_tri_horz());
 
-	return std::make_pair(dir, theta);
+	return std::make_pair(dPos, dTheta);
 }
 
 int main() {
@@ -93,6 +94,21 @@ int main() {
 
 		/* update affine matrices */
 		fanLevel.prepAffines();
+
+		DEBUGFMT("cam:(%ld, %ld, %ld)", cam.pos.x, cam.pos.y, cam.pos.z);
+		DEBUGFMT("lam[0]:%f", float(fanLevel.layer.bgaff[0].pa));
+		DEBUGFMT("ulc:(%ld, %ld, %ld) urc:(%ld, %ld, %ld)",
+			t_ul_cam.x >> 8, t_ul_cam.y >> 8, t_ul_cam.z >> 8,
+			t_ur_cam.x >> 8, t_ur_cam.y >> 8, t_ur_cam.z >> 8);
+		DEBUGFMT("blc:(%ld, %ld, %ld) brc:(%ld, %ld, %ld)",
+			t_bl_cam.x >> 8, t_bl_cam.y >> 8, t_bl_cam.z >> 8,
+			t_br_cam.x >> 8, t_br_cam.y >> 8, t_br_cam.z >> 8);
+		DEBUGFMT("uls:(%ld, %ld, %ld) urs:(%ld, %ld, %ld)",
+			t_ul_screen.x >> 4, t_ul_screen.y >> 4, t_ul_screen.z >> 4,
+			t_ur_screen.x >> 4, t_ur_screen.y >> 4, t_ur_screen.z >> 4);
+		DEBUGFMT("bls:(%ld, %ld, %ld) brs:(%ld, %ld, %ld)",
+			t_bl_screen.x >> 4, t_bl_screen.y >> 4, t_bl_screen.z >> 4,
+			t_br_screen.x >> 4, t_br_screen.y >> 4, t_br_screen.z >> 4);
 	}
 
 	return 0;
