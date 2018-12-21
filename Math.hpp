@@ -5,6 +5,31 @@
 template <size_t FractDigits>
 using FPi32 = cnl::fixed_point<std::int32_t, -FractDigits>;
 
+/* wrapped tonc functions */
+
+template <size_t Frac, typename T, typename U>
+auto static inline Div(T const& num, U const& denom) {
+	return cnl::from_rep<FPi32<Frac>, std::int32_t>{}(DivSafe(
+		cnl::to_rep<T>{}(num),
+		cnl::to_rep<U>{}(denom)));
+}
+
+auto static inline luCos(uint32_t const theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_cos(theta & 0xFFFF));
+}
+auto static inline luSin(uint32_t const theta) {
+	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(theta & 0xFFFF));
+}
+
+using fp0  = FPi32<0>;
+using fp4  = FPi32<4>;
+using fp8  = FPi32<8>;
+using fp12 = FPi32<12>;
+using fp16 = FPi32<16>;
+using fp20 = FPi32<20>;
+
+/* linear algebra */
+
 template <size_t N>
 struct Vector {
 	FPi32<N> x, y, z;
@@ -16,6 +41,13 @@ struct Vector {
 			, .y = y + rhs.y
 			, .z = z + rhs.z
 			};
+	}
+
+	template <size_t M>
+	auto inline operator+= (Vector<M> const& rhs) {
+		x += rhs.x;
+		y += rhs.y;
+		z += rhs.z;
 	}
 
 	template <size_t M>
@@ -45,6 +77,10 @@ struct Vector {
 			};
 	}
 };
+
+using  v0 = Vector<0>;
+using  v8 = Vector<8>;
+using v12 = Vector<12>;
 
 template <size_t N>
 struct Matrix {
@@ -99,6 +135,38 @@ auto inline make_basis(Vector<N> const& u, Vector<N> const& v, Vector<N> const& 
 		, .d = u.y, .e = v.y, .f = w.y
 		, .g = u.z, .h = v.z, .i = w.z
 		};
+}
+
+auto static inline make_rot(uint32_t const theta, uint32_t const phi) {
+	auto const sin_theta = luSin(theta);
+	auto const cos_theta = luCos(theta);
+	#if 0
+	auto const sin_phi   = luSin(phi);
+	auto const cos_phi   = luCos(phi);
+	return Matrix<-decltype(luCos(theta))::exponent>
+		{ .a =  cos_phi
+		, .b =  sin_phi * sin_theta
+		, .c = -sin_phi * cos_theta
+		, .d =  0
+		, .e =  cos_theta
+		, .f =  sin_theta
+		, .g =  sin_phi
+		, .h = -cos_phi * sin_theta
+		, .i =  cos_phi * cos_theta
+		};
+	#else
+	return Matrix<-decltype(luCos(theta))::exponent>
+		{ .a =  1
+		, .b =  0
+		, .c =  0
+		, .d =  0
+		, .e =  cos_theta
+		, .f =  sin_theta
+		, .g =  0
+		, .h = -sin_theta
+		, .i =  cos_theta
+		};
+	#endif
 }
 
 template <size_t N>

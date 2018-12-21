@@ -10,44 +10,6 @@
 #include "Math.hpp"
 #include "Reg.hpp"
 
-auto static inline luCos(uint32_t const theta) {
-	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_cos(theta & 0xFFFF));
-}
-auto static inline luSin(uint32_t const theta) {
-	return cnl::from_rep<FPi32<12>, std::int32_t>{}(lu_sin(theta & 0xFFFF));
-}
-
-auto static inline make_rot(uint32_t const theta, uint32_t const phi) {
-	auto const sin_phi   = luSin(phi);
-	auto const sin_theta = luSin(theta);
-	auto const cos_phi   = luCos(phi);
-	auto const cos_theta = luCos(theta);
-	return Matrix<-decltype(luCos(theta))::exponent>
-	#if 0
-		{ .a =  cos_phi
-		, .b =  sin_phi * sin_theta
-		, .c = -sin_phi * cos_theta
-		, .d =  0
-		, .e =  cos_theta
-		, .f =  sin_theta
-		, .g =  sin_phi
-		, .h = -cos_phi * sin_theta
-		, .i =  cos_phi * cos_theta
-		};
-	#else
-		{ .a =  1
-		, .b =  0
-		, .c =  0
-		, .d =  0
-		, .e =  cos_theta
-		, .f =  sin_theta
-		, .g =  0
-		, .h = -sin_theta
-		, .i =  cos_theta
-		};
-	#endif
-}
-
 namespace M7 {
 
 	/* mode 7 constants */
@@ -69,19 +31,19 @@ namespace M7 {
 	/* mode 7 classes */
 	class Camera {
 	public:
-		Vector<0> pos;
+		v0 pos;
 		/* rotation angles */
 		int theta; /* polar angle */
 		int phi; /* azimuth angle */
 		/* space basis */
-		Vector<12> u; /* local x-axis */
-		Vector<12> v; /* local y-axis */
-		Vector<12> w; /* local z-axis */
+		v12 u; /* local x-axis */
+		v12 v; /* local y-axis */
+		v12 w; /* local z-axis */
 		/* rendering */
-		FPi32<8> fov;
+		fp8 fov;
 
-		Camera(FPi32<8> const& fov);
-		void translate(Vector<0> const& dPos);
+		Camera(fp8 const& fov);
+		void translate(v0 const& dPos);
 		void rotate(int32_t const dTheta);
 	};
 
