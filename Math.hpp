@@ -126,6 +126,21 @@ struct Matrix {
 			, .z = g * rhs.x + h * rhs.y + i * rhs.z
 			};
 	}
+
+	template <size_t M>
+	inline operator Matrix<M> () const {
+		return Matrix<M>
+			{ .a = FPi32<M>{a}
+			, .b = FPi32<M>{b}
+			, .c = FPi32<M>{c}
+			, .d = FPi32<M>{d}
+			, .e = FPi32<M>{e}
+			, .f = FPi32<M>{f}
+			, .g = FPi32<M>{g}
+			, .h = FPi32<M>{h}
+			, .i = FPi32<M>{i}
+			};
+	}
 };
 
 template <size_t N>
@@ -137,13 +152,14 @@ auto inline make_basis(Vector<N> const& u, Vector<N> const& v, Vector<N> const& 
 		};
 }
 
+template <size_t N = 12>
 auto static inline make_rot(uint32_t const theta, uint32_t const phi) {
 	auto const sin_theta = luSin(theta);
 	auto const cos_theta = luCos(theta);
 	#if 0
 	auto const sin_phi   = luSin(phi);
 	auto const cos_phi   = luCos(phi);
-	return Matrix<-decltype(luCos(theta))::exponent>
+	return Matrix<N>
 		{ .a =  cos_phi
 		, .b =  sin_phi * sin_theta
 		, .c = -sin_phi * cos_theta
@@ -155,15 +171,15 @@ auto static inline make_rot(uint32_t const theta, uint32_t const phi) {
 		, .i =  cos_phi * cos_theta
 		};
 	#else
-	return Matrix<-decltype(luCos(theta))::exponent>
+	return Matrix<N>
 		{ .a =  1
 		, .b =  0
 		, .c =  0
 		, .d =  0
 		, .e =  cos_theta
-		, .f =  sin_theta
+		, .f = -sin_theta
 		, .g =  0
-		, .h = -sin_theta
+		, .h =  sin_theta
 		, .i =  cos_theta
 		};
 	#endif

@@ -14,8 +14,8 @@ namespace M7 {
 
 	/* mode 7 constants */
 	namespace k {
-		size_t static constexpr screenHeight = SCREEN_HEIGHT;
-		size_t static constexpr screenWidth  = SCREEN_WIDTH;
+		int static constexpr screenHeight = SCREEN_HEIGHT;
+		int static constexpr screenWidth  = SCREEN_WIDTH;
 		int static constexpr focalLength   =  160;
 		int static constexpr focalShift    =  8;
 		int static constexpr renormShift   =  2;

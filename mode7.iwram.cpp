@@ -29,27 +29,37 @@ M7::Level::applyAffine(int const vc) {
 }
 
 // texture flat like Mode 7
-auto const static t_ul_world = v0{0, 0, 0};
-auto const static t_ur_world = v0{M7::k::screenWidth, 0, 0};
-auto const static t_bl_world = v0{0, 0, M7::k::screenHeight};
-auto const static t_br_world = v0{M7::k::screenWidth, 0, M7::k::screenHeight};
+auto constexpr static t_u_world = v0{0, 0, 0};
+auto constexpr static t_b_world = v0{0, 0, M7::k::screenHeight};
+
+int constexpr t_theta = 0;
 
 IWRAM_CODE void
 M7::Level::prepAffines() {
 
-	auto const cos_theta = fp8{cam.v.y};
-	auto const sin_theta = fp8{cam.w.y};
+	auto const camBasis_screen = Matrix<0>
+		{ .a =  1, .b =  0, .c =  0
+		, .d =  0, .e =  1, .f =  0
+		, .g =  0, .h =  0, .i = -1
+		};
+	auto const theta_cam = cam.theta + t_theta;
+	auto const texBasis_cam = make_rot<8>(theta_cam, 0);
+	auto const texBasis_screen = texBasis_cam * camBasis_screen;
 
-	for (size_t h = 0; h < k::screenHeight; h++) {
+	for (int h = 0; h < k::screenHeight; h++) {
 
-		auto const yb = fp0{h - M7::k::viewTop} * cos_theta + fp0{M7::k::focalLength} * sin_theta;
-		auto const lam = Div<12>(fp20{cam.pos.y}, yb);
+		auto const screenOrigin_cam = v0
+			{ M7::k::viewLeft
+			, h - M7::k::viewTop
+			, M7::k::focalLength
+		};
+		auto const b = texBasis_screen * screenOrigin_cam;
+		auto const lam = Div<12>(fp20{cam.pos.y}, b.y);
 
 		layer.bgaff[h].pa = lam;
 
-		auto const zb = fp0{h - M7::k::viewTop} * sin_theta - fp0{M7::k::focalLength} * cos_theta;
-		layer.bgaff[h].dx = fp8{cam.pos.x} + fp8{lam} * fp0{M7::k::viewLeft};
-		layer.bgaff[h].dy = fp8{cam.pos.z} + fp8{fp8{lam} * zb};
+		layer.bgaff[h].dx = fp8{cam.pos.x} + fp8{fp8{lam} * fp0{b.x}};
+		layer.bgaff[h].dy = fp8{cam.pos.z} + fp8{fp8{lam} * fp8{b.z}};
 	}
 	layer.bgaff[M7::k::screenHeight] = layer.bgaff[0];
 }
