@@ -35,10 +35,6 @@ namespace M7 {
 		/* rotation angles */
 		int theta; /* polar angle */
 		int phi; /* azimuth angle */
-		/* space basis */
-		v12 u; /* local x-axis */
-		v12 v; /* local y-axis */
-		v12 w; /* local z-axis */
 		/* rendering */
 		fp8 fov;
 
@@ -69,7 +65,6 @@ namespace M7 {
 		Layer& layer;
 
 		Level(Camera const& cam, Layer& layer);
-		void translateLocal(Vector<0> const& dir);
 
 		IWRAM_CODE void prepAffines();
 		IWRAM_CODE void applyAffine(int vc);
@@ -80,6 +75,3 @@ namespace M7 {
 extern M7::Level fanLevel;
 extern Reg volatile reg;
 IWRAM_CODE void m7_hbl();
-
-Vector<8> extern t_ul_cam, t_ur_cam, t_bl_cam, t_br_cam;
-Vector<4> extern t_ul_screen, t_ur_screen, t_bl_screen, t_br_screen;

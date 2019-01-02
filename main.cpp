@@ -90,7 +90,6 @@ int main() {
 		auto const [dPos, dTheta] = input_game();
 		cam.translate(dPos);
 		cam.rotate(dTheta);
-		fanLevel.translateLocal(dPos);
 
 		/* update affine matrices */
 		fanLevel.prepAffines();
@@ -98,18 +97,6 @@ int main() {
 #if 0
 		DEBUGFMT("cam:(%ld, %ld, %ld)", cam.pos.x, cam.pos.y, cam.pos.z);
 		DEBUGFMT("lam[0]:%f", float(fanLevel.layer.bgaff[0].pa));
-		DEBUGFMT("ulc:(%ld, %ld, %ld) urc:(%ld, %ld, %ld)",
-			t_ul_cam.x >> 8, t_ul_cam.y >> 8, t_ul_cam.z >> 8,
-			t_ur_cam.x >> 8, t_ur_cam.y >> 8, t_ur_cam.z >> 8);
-		DEBUGFMT("blc:(%ld, %ld, %ld) brc:(%ld, %ld, %ld)",
-			t_bl_cam.x >> 8, t_bl_cam.y >> 8, t_bl_cam.z >> 8,
-			t_br_cam.x >> 8, t_br_cam.y >> 8, t_br_cam.z >> 8);
-		DEBUGFMT("uls:(%ld, %ld, %ld) urs:(%ld, %ld, %ld)",
-			t_ul_screen.x >> 4, t_ul_screen.y >> 4, t_ul_screen.z >> 4,
-			t_ur_screen.x >> 4, t_ur_screen.y >> 4, t_ur_screen.z >> 4);
-		DEBUGFMT("bls:(%ld, %ld, %ld) brs:(%ld, %ld, %ld)",
-			t_bl_screen.x >> 4, t_bl_screen.y >> 4, t_bl_screen.z >> 4,
-			t_br_screen.x >> 4, t_br_screen.y >> 4, t_br_screen.z >> 4);
 #endif
 	}
 

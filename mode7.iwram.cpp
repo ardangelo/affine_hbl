@@ -4,8 +4,6 @@
 Reg volatile reg;
 
 #include "mode7.h"
-Vector<8> t_ul_cam, t_ur_cam, t_bl_cam, t_br_cam;
-Vector<4> t_ul_screen, t_ur_screen, t_bl_screen, t_br_screen;
 
 /* M7Level affine / window calculation implementations */
 
@@ -29,37 +27,65 @@ M7::Level::applyAffine(int const vc) {
 }
 
 // texture flat like Mode 7
-auto constexpr static t_u_world = v0{0, 0, 0};
-auto constexpr static t_b_world = v0{0, 0, M7::k::screenHeight};
-
-int constexpr t_theta = 0;
+struct Seg {
+	v0 start, end;
+	int theta;
+};
+auto constexpr static floorSeg = Seg
+	{ .start = {0, 0, 0}
+	, .end   = {0, 0, M7::k::screenHeight}
+	, .theta = 0 // arctan((e.y - s.y) / (e.z - s.z))
+};
 
 IWRAM_CODE void
 M7::Level::prepAffines() {
 
+	// camera to screen change-of-basis (reversed Z-axis)
 	auto const camBasis_screen = Matrix<0>
 		{ .a =  1, .b =  0, .c =  0
 		, .d =  0, .e =  1, .f =  0
 		, .g =  0, .h =  0, .i = -1
 		};
-	auto const theta_cam = cam.theta + t_theta;
-	auto const texBasis_cam = make_rot<8>(theta_cam, 0);
-	auto const texBasis_screen = texBasis_cam * camBasis_screen;
 
-	for (int h = 0; h < k::screenHeight; h++) {
+	/* helper to render visible parts of drawseg */
+	auto renderSeg = [&](Seg const& seg) {
+		/* calculate texture to screen COB */
+		auto const theta_cam = cam.theta + seg.theta;
+		auto const texBasis_cam = make_rot<8>(theta_cam, 0);
+		auto const texBasis_screen = texBasis_cam * camBasis_screen;
 
-		auto const screenOrigin_cam = v0
-			{ M7::k::viewLeft
-			, h - M7::k::viewTop
-			, M7::k::focalLength
+		/* determine which scanline a world vector intersects with */
+		auto scanlineIntersect = [&](v0 const& vec_world) {
+			auto const vec_screen = (texBasis_cam * (vec_world - cam.pos));
+			return int{Div<0>(
+				fp8{vec_screen.y} * fp0{k::focalLength},
+				fp8{vec_screen.z})
+			+ k::viewTop};
 		};
-		auto const b = texBasis_screen * screenOrigin_cam;
-		auto const lam = Div<12>(fp20{cam.pos.y}, b.y);
 
-		layer.bgaff[h].pa = lam;
+		/* calculate begin and end scanlines of drawseg */
+		auto const h_start = scanlineIntersect(seg.start);
+		auto const h_end   = scanlineIntersect(seg.end);
 
-		layer.bgaff[h].dx = fp8{cam.pos.x} + fp8{fp8{lam} * fp0{b.x}};
-		layer.bgaff[h].dy = fp8{cam.pos.z} + fp8{fp8{lam} * fp8{b.z}};
-	}
-	layer.bgaff[M7::k::screenHeight] = layer.bgaff[0];
+		/* calculate affine parameters for visible part of drawseg */
+		for (int h = std::max(0, h_start); h < std::min(h_end, k::screenHeight); h++) {
+			/* screen origin adjusts per scanline */
+			auto const topscanOrigin_cam = v0
+				{ k::viewLeft
+				, h - M7::k::viewTop
+				, k::focalLength
+			};
+			auto const b = texBasis_screen * topscanOrigin_cam;
+			auto const lam = Div<12>(fp20{cam.pos.y}, b.y);
+
+			layer.bgaff[h].pa = lam;
+
+			layer.bgaff[h].dx = fp8{cam.pos.x} + fp8{fp8{lam} * fp0{b.x}};
+			layer.bgaff[h].dy = fp8{cam.pos.z} + fp8{fp8{lam} * fp8{b.z}};
+		}
+	};
+
+	renderSeg(floorSeg);
+
+	layer.bgaff[k::screenHeight] = layer.bgaff[0];
 }
