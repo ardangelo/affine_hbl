@@ -37,7 +37,6 @@ namespace M7 {
 
 		int static constexpr screenHeight  = SCREEN_HEIGHT;
 		int static constexpr screenWidth   = SCREEN_WIDTH;
-		int static constexpr focalLength   =  160;
 		int static constexpr focalShift    =  8;
 		int static constexpr renormShift   =  2;
 		int static constexpr viewLeft      = -120;

@@ -1,48 +1,64 @@
 #pragma once
 
 #include <type_traits>
-#include <climits>
 
+#include <cassert>
+#include <climits>
 #include <cmath>
 constexpr static auto M_PI = double{4.0 * atan(1.0)};
 
 #include "mode7.hpp"
 
 namespace lut {
-	/* partial compression of monotonic luts:
-		encode as bitset with bit 1 meaning increase value by 1 and store
-		good for e.g. 0 0 0 0 1 1 1 2 2 3 4 ...
-	 */
+
 	namespace {
+		/* partial "compression" (encoding) of monotonic luts:
+		   encode as bitset with bit 1 meaning increase value by 1 and store
+		   good for e.g. 0 0 0 0 1 1 1 2 2 3 4 ...
+		 */
+
 		constexpr auto byte2bits(std::size_t const bytes) {
 			return std::size_t{(bytes + CHAR_BIT - 1) / CHAR_BIT};
 		}
+
+		// store a compressed prefix of a lut and the remaining uncompressed portion
 		template <std::size_t compr_range, std::size_t full_size, typename T>
 		struct partial_compressed_lut {
 			T firstElem;
 			std::array<T, byte2bits(compr_range)>  compr_portion   = {0x0};
-			std::array<T, full_size - compr_range> decompr_portion = {0x0};
+			std::array<T, full_size - compr_range> uncompr_portion = {0x0};
 
+			// start with firstElem, if bit i is set, add 1; store result i. copy uncompressed
 			auto decompress() const {
 				std::array<T, full_size> result = {0x0};
+
+				// start with firstElem...
 				auto lastElem = firstElem;
 				for (auto i = std::size_t{0}; i < compr_range; i++) {
+					// if bit i is set...
 					if (compr_portion[i / CHAR_BIT] & (1 << (i % CHAR_BIT))) {
+						// add 1...
 						lastElem++;
 					}
+					// store result i
 					result[i] = lastElem;
 				}
+
+				// copy uncompressed
 				for (auto i = compr_range; i < full_size; i++) {
-					result[i] = decompr_portion[i - compr_range];
+					result[i] = uncompr_portion[i - compr_range];
 				}
 				return result;
 			}
 		};
+
+		// a zero-sized array is invalid, so we need seperate a type for fully-compressed lut
 		template <std::size_t compr_range, std::size_t full_size, typename T>
 		struct fully_compressed_lut {
 			T firstElem;
 			std::array<T, byte2bits(compr_range)>  compr_portion = {0x0};
 
+			// start with firstElem, if bit i is set, add 1; store result i
 			auto decompress() const {
 				std::array<T, full_size> result = {0x0};
 				auto lastElem = firstElem;
@@ -55,10 +71,14 @@ namespace lut {
 				return result;
 			}
 		};
+
+		// calculate the size of the compressible prefix of a lut
 		template <typename Array>
 		constexpr auto calc_compr_range(Array const& arr) {
-			auto lastElem = arr[0];
 			auto result = std::size_t{0};
+
+			// an elem can be added to the prefix if it differs from the previous elem by at most 1
+			auto lastElem = arr[0];
 			for (auto i = std::size_t{0}; i < arr.size(); i++) {
 				if (arr[i] - lastElem > 1) {
 					return result;
@@ -76,40 +96,49 @@ namespace lut {
 				return Array{}.size();
 			}
 		};
-		template <std::size_t compr_range, typename Array,
-			typename std::enable_if<(compr_range == (ArraySize<Array>::value()))>::type* = nullptr>
+
+		// given a fully-computed lut, compress a prefix (which could be the entire lut)
+		template <std::size_t compr_range, typename Array>
 		constexpr auto make_compressed_lut(Array const& arr) {
 			using T = typename std::remove_cv<typename std::remove_reference<decltype( arr[0] )>::type>::type;
-			fully_compressed_lut<compr_range, arr.size(), T> result = {};
-			result.firstElem = arr[0];
 
-			auto lastElem = arr[0];
-			for (auto i = std::size_t{0}; i < compr_range; i++) {
-				if (lastElem < arr[i]) {
-					result.compr_portion[i / CHAR_BIT] |= (1 << (i % CHAR_BIT));
-				}
-				lastElem = arr[i];
-			}
-			return result;
-		}
-		template <std::size_t compr_range, typename Array,
-			typename std::enable_if<(compr_range < (ArraySize<Array>::value()))>::type* = nullptr>
-		constexpr auto make_compressed_lut(Array const& arr) {
-			using T = typename std::remove_cv<typename std::remove_reference<decltype( arr[0] )>::type>::type;
-			partial_compressed_lut<compr_range, arr.size(), T> result = {};
-			result.firstElem = arr[0];
+			// determine if the entire lut is to be compressed
+			if constexpr (compr_range == (ArraySize<Array>::value())) {
 
-			auto lastElem = arr[0];
-			for (auto i = std::size_t{0}; i < compr_range; i++) {
-				if (lastElem < arr[i]) {
-					result.compr_portion[i / CHAR_BIT] |= (1 << (i % CHAR_BIT));
+				// create fully compressed lut
+				fully_compressed_lut<compr_range, arr.size(), T> result = {};
+				result.firstElem = arr[0];
+
+				auto lastElem = arr[0];
+				for (auto i = std::size_t{0}; i < compr_range; i++) {
+					// ensure value increased by no more than 1
+					assert((arr[i] >= lastElem) && (arr[i] - lastElem <= 1));
+
+					// write a 1 bit if value increased by 1
+					if (lastElem + 1 == arr[i]) {
+						result.compr_portion[i / CHAR_BIT] |= (1 << (i % CHAR_BIT));
+					}
+					lastElem = arr[i];
 				}
-				lastElem = arr[i];
+				return result;
+
+			} else {
+				// create partially compressed lut
+				partial_compressed_lut<compr_range, arr.size(), T> result = {};
+				result.firstElem = arr[0];
+
+				auto lastElem = arr[0];
+				for (auto i = std::size_t{0}; i < compr_range; i++) {
+					if (lastElem < arr[i]) {
+						result.compr_portion[i / CHAR_BIT] |= (1 << (i % CHAR_BIT));
+					}
+					lastElem = arr[i];
+				}
+				for (auto i = compr_range; i < arr.size(); i++) {
+					result.uncompr_portion[i - compr_range] = arr[i];
+				}
+				return result;
 			}
-			for (auto i = compr_range; i < arr.size(); i++) {
-				result.decompr_portion[i - compr_range] = arr[i];
-			}
-			return result;
 		}
 	}
 
@@ -199,18 +228,21 @@ namespace lut {
 		constexpr auto compr_viewangletoy_range = calc_compr_range(viewangletoy_arr);
 		constexpr auto compressed_viewangletoy = make_compressed_lut<compr_viewangletoy_range>(viewangletoy_arr);
 	}
-	template <typename Array>
-	constexpr auto viewangletoy_impl(Array const& viewangletoy_arr, BAM const i) {
-		if (abs(i) > PI / 2) {
-			return fp0::max();
+	namespace {
+		template <typename Array>
+		constexpr auto viewangletoy_impl(Array const& viewangletoy_arr, BAM const i) {
+			if (abs(i) > PI / 2) {
+				return fp0::max();
+			}
+			if (i < 0) {
+				return fp0{viewangletoy_arr[-i]} + viewTop;
+			} else {
+				return -fp0{viewangletoy_arr[i]} + viewTop;
+			}
 		}
-		if (i < 0) {
-			return fp0{viewangletoy_arr[-i]} + viewTop;
-		} else {
-			return -fp0{viewangletoy_arr[i]} + viewTop;
-		}
+		auto const static decompressed_viewangletoy_arr = _viewangletoy::compressed_viewangletoy.decompress();
 	}
-	auto const static decompressed_viewangletoy_arr = _viewangletoy::compressed_viewangletoy.decompress();
+	constexpr auto focalLength = _viewangletoy::focalLength;
 	auto viewangletoy(BAM const i) {
 		return viewangletoy_impl(decompressed_viewangletoy_arr, i);
 	}
@@ -258,7 +290,9 @@ namespace lut {
 		constexpr auto compr_tantoangle_range = calc_compr_range(tantoangle_arr);
 		constexpr auto compressed_tantoangle = make_compressed_lut<compr_tantoangle_range>(tantoangle_arr);
 	}
-	auto const static decompressed_tantoangle_arr = _tantoangle::compressed_tantoangle.decompress();
+	namespace {
+		auto const static decompressed_tantoangle_arr = _tantoangle::compressed_tantoangle.decompress();
+	}
 	auto tantoangle(Slope const m) {
 		return decompressed_tantoangle_arr[m.to_rep()];
 	}
@@ -273,11 +307,15 @@ namespace lut {
 			}
 		}
 	}
+
+	// essentially arctan
 	auto pointtoangle(fp0 const x, fp0 const y) {
 		if (!x.to_rep() && !y.to_rep()) {
 			return BAM{0};
 		}
+
 		#if 0
+		// reference implementation: calculate using first octant and transform accordingly
 		if ((0 <= x.to_rep()) && (0 <= y.to_rep())) {
 			if (x > y) { // 0*pi/4 <= angle < 1*pi/4
 				return (0 * PI / 2) + tantoangle(slope_div(y, x));
@@ -307,7 +345,9 @@ namespace lut {
 				return (4 * PI / 2) - tantoangle(slope_div(abs_y, x));
 			}
 		}
+
 		#else
+		// optimized
 		auto abs_x = fp0{};
 		auto abs_y = fp0{};
 		auto quadrant_offs = BAM{};
