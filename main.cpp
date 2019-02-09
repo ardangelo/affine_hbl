@@ -5,12 +5,10 @@
 
 #include <utility>
 
-#include "mode7.h"
+#include "mode7.hpp"
 
 #include "gfx/fanroom.h"
 #include "gfx/bgpal.h"
-
-#include "maps/fanroom.h"
 
 #define DEBUG_MODE
 #ifndef DEBUG_MODE
@@ -34,7 +32,7 @@
 
 /* m7 globals */
 
-M7::Camera cam(fp8{M7::k::viewTop} / M7::k::focalLength);
+M7::Camera cam(fp8{M7::k::viewTop} / fp0{M7::k::focalLength});
 M7::Layer floorLayer(
 	M7_CBB,    fanroomTiles,
 	FLOOR_SBB, fanroomMap,
@@ -64,9 +62,8 @@ auto input_game() {
 	key_poll();
 
 	auto const dPos = v0
-		{ .x = VEL_X * key_tri_shoulder() /* strafe */
-		, .y = 0
-		, .z = VEL_Z * key_tri_vert() /* forwards / backwards */
+		{ VEL_X * fp0{key_tri_shoulder()} // strafe
+		, VEL_Z * fp0{key_tri_vert()}     // forwards / backwards
 	};
 
 	/* rotate */

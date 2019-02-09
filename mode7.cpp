@@ -1,10 +1,10 @@
 #include <limits.h>
 #include <tonc.h>
 
-#include "mode7.h"
+#include "mode7.hpp"
 
 M7::Camera::Camera(fp8 const& fov_)
-	: pos{120, 160, 80}
+	: pos{120, 80}
 	, theta{0x3FFF}
 	, phi{0x0}
 	, fov{fov_} {}

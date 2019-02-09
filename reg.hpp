@@ -5,11 +5,11 @@
 
 #include <tonc.h>
 
-#include <cnl/fixed_point.h>
+#include "math.hpp"
 
 namespace affine {
-	using PParam = cnl::fixed_point<std::int16_t, -8>;
-	using DParam = cnl::fixed_point<std::int32_t, -8>;
+	using PParam = math::fixed_point<8, std::int16_t>;
+	using DParam = math::fixed_point<8, std::int32_t>;
 
 	struct ParamSet {
 		PParam pa, pb, pc, pd;

@@ -7,15 +7,36 @@
 
 #include <array>
 
-#include "Math.hpp"
-#include "Reg.hpp"
+#include "reg.hpp"
+
+template <size_t N>
+using fp = math::fixed_point<N, std::int32_t>;
+template <size_t N>
+using mat = math::Matrix<fp<N>, 2, 2>;
+template <size_t N>
+using vec = math::Matrix<fp<N>, 2, 1>;
+
+using fp0 = fp<0>;
+using fp8 = fp<8>;
+
+using v0 = vec<0>;
 
 namespace M7 {
 
 	/* mode 7 constants */
 	namespace k {
-		int static constexpr screenHeight = SCREEN_HEIGHT;
-		int static constexpr screenWidth  = SCREEN_WIDTH;
+		using BAM = std::size_t;
+		constexpr auto FINEANGLES  = std::size_t{1 << 13}; // 0x2000
+		constexpr auto FINEMASK    = BAM{FINEANGLES - 1};
+		constexpr auto PI = BAM{FINEANGLES / 2};
+
+		using Slope = fp<11>;
+		constexpr auto SLOPERANGE = std::size_t{1 << 11};
+
+		constexpr auto FOV = BAM{0x600};
+
+		int static constexpr screenHeight  = SCREEN_HEIGHT;
+		int static constexpr screenWidth   = SCREEN_WIDTH;
 		int static constexpr focalLength   =  160;
 		int static constexpr focalShift    =  8;
 		int static constexpr renormShift   =  2;

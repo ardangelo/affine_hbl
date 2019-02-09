@@ -4,7 +4,7 @@ include $(DEVKITARM)/gba_rules
 CC			:= arm-none-eabi-g++
 GRIT		:= grit
 
-INCLUDE	:= -Iinclude -Iinclude/cnl/include
+INCLUDE	:= -Iinclude
 LIBS		:= -ltonc -lkrawall
 LIBPATHS	:= -Llib
 
@@ -53,11 +53,14 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-mode7.iwram.o : mode7.iwram.cpp mode7.h Math.hpp Reg.hpp
+SRC_HEADERS :=  $(GFX_HEADERS) math.hpp reg.hpp
+lut.hpp.gch: lut.hpp
+	$(CC) $(CPPFLAGS) $(IARCH) -c lut.hpp -o lut.hpp.gch
+mode7.iwram.o : mode7.iwram.cpp mode7.hpp lut.hpp.gch $(SRC_HEADERS)
 	$(CC) $(CPPFLAGS) $(IARCH) -c mode7.iwram.cpp -o mode7.iwram.o
-mode7.o : mode7.cpp mode7.h Math.hpp Reg.hpp
+mode7.o : mode7.cpp mode7.hpp $(SRC_HEADERS)
 	$(CC) $(CPPFLAGS) $(RARCH) -c mode7.cpp -o mode7.o
-main.o : main.cpp $(GFX_HEADERS)
+main.o : main.cpp $(SRC_HEADERS)
 	$(CC) $(CPPFLAGS) $(RARCH) -c main.cpp -o main.o
 
 CODE_OBJS := main.o mode7.o mode7.iwram.o
@@ -72,7 +75,7 @@ $(ROMNAME).gba : $(ROMNAME).elf
 	gbafix $(ROMNAME).gba -t$(ROMNAME)
 
 clean :
-	@rm -fv *.gba *.elf
-	@rm -fv *.o
+	@rm -fv *.gba *.elf *.sav
+	@rm -fv *.o *.gch
 	@rm -fv gfx/*.s gfx/*.h gfx/*.o
 	@rm -fv main.s .map

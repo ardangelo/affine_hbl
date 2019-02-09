@@ -1,4 +1,5 @@
 .map
+*.gch
 *.o
 *.elf
 *.gba
