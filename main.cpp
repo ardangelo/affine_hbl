@@ -1,3 +1,5 @@
+#include "bsp.hpp" // precompiled
+
 #include <limits.h>
 #include <stdio.h>
 
@@ -32,7 +34,7 @@
 
 /* m7 globals */
 
-M7::Camera cam(fp8{M7::k::viewTop} / fp0{M7::k::focalLength});
+M7::Camera cam(fp<10>{M7::k::viewTop} / fp<2>{focalLength});
 M7::Layer floorLayer(
 	M7_CBB,    fanroomTiles,
 	FLOOR_SBB, fanroomMap,

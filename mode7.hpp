@@ -56,9 +56,9 @@ namespace M7 {
 		int theta; /* polar angle */
 		int phi; /* azimuth angle */
 		/* rendering */
-		fp8 fov;
+		fp<2> fov;
 
-		Camera(fp8 const& fov);
+		Camera(fp8 const fov);
 		void translate(v0 const& dPos);
 		void rotate(int32_t const dTheta);
 	};
@@ -93,5 +93,7 @@ namespace M7 {
 
 /* accessible both from main and iwram */
 extern M7::Level fanLevel;
+
 extern Reg volatile reg;
+extern const fp<2> focalLength;
 IWRAM_CODE void m7_hbl();

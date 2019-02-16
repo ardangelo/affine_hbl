@@ -14,7 +14,7 @@ RARCH	:= -mthumb-interwork -mthumb
 IARCH	:= -mthumb-interwork -marm -mlong-calls
 
 ASFLAGS	:= -mthumb-interwork
-CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing -fno-exceptions -fno-non-call-exceptions -fno-rtti
+CPPFLAGS:= $(INCLUDE) -std=c++17 -mcpu=arm7tdmi -mtune=arm7tdmi -O2 -Wall -ffast-math -fno-strict-aliasing -fno-exceptions -fno-non-call-exceptions -fno-rtti -Winvalid-pch
 LDFLAGS	:= $(ARCH) $(SPECS) $(LIBPATHS) $(LIBS) -Wl,-Map,$(PROJ).map
 
 ROMNAME	:= affine_hbl
@@ -53,14 +53,17 @@ GFX_HEADERS := $(GFX_ASM:.s=.h)
 GFX_OBJS := $(GFX_ASM:.s=.o)
 
 # compile the code object files
-SRC_HEADERS :=  $(GFX_HEADERS) math.hpp reg.hpp
+SRC_HEADERS :=  $(GFX_HEADERS) math.hpp reg.hpp lut.hpp.gch bsp.hpp.gch
 lut.hpp.gch: lut.hpp
 	$(CC) $(CPPFLAGS) $(IARCH) -c lut.hpp -o lut.hpp.gch
-mode7.iwram.o : mode7.iwram.cpp mode7.hpp lut.hpp.gch $(SRC_HEADERS)
+mode7.iwram.o : mode7.iwram.cpp mode7.hpp $(SRC_HEADERS) lut.hpp.gch
 	$(CC) $(CPPFLAGS) $(IARCH) -c mode7.iwram.cpp -o mode7.iwram.o
+
+bsp.hpp.gch: bsp.hpp
+	$(CC) $(CPPFLAGS) $(RARCH) -c bsp.hpp -o bsp.hpp.gch
 mode7.o : mode7.cpp mode7.hpp $(SRC_HEADERS)
 	$(CC) $(CPPFLAGS) $(RARCH) -c mode7.cpp -o mode7.o
-main.o : main.cpp $(SRC_HEADERS)
+main.o : main.cpp $(SRC_HEADERS) bsp.hpp.gch
 	$(CC) $(CPPFLAGS) $(RARCH) -c main.cpp -o main.o
 
 CODE_OBJS := main.o mode7.o mode7.iwram.o

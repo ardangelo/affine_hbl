@@ -3,7 +3,7 @@
 
 #include "mode7.hpp"
 
-M7::Camera::Camera(fp8 const& fov_)
+M7::Camera::Camera(fp8 const fov_)
 	: pos{120, 80}
 	, theta{0x3FFF}
 	, phi{0x0}

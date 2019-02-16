@@ -243,7 +243,7 @@ namespace lut {
 		auto const static decompressed_viewangletoy_arr = _viewangletoy::compressed_viewangletoy.decompress();
 	}
 	constexpr auto focalLength = _viewangletoy::focalLength;
-	auto viewangletoy(BAM const i) {
+	inline auto viewangletoy(BAM const i) {
 		return viewangletoy_impl(decompressed_viewangletoy_arr, i);
 	}
 
@@ -293,7 +293,7 @@ namespace lut {
 	namespace {
 		auto const static decompressed_tantoangle_arr = _tantoangle::compressed_tantoangle.decompress();
 	}
-	auto tantoangle(Slope const m) {
+	inline auto tantoangle(Slope const m) {
 		return decompressed_tantoangle_arr[m.to_rep()];
 	}
 
@@ -309,7 +309,7 @@ namespace lut {
 	}
 
 	// essentially arctan
-	auto pointtoangle(fp0 const x, fp0 const y) {
+	inline auto pointtoangle(fp0 const x, fp0 const y) {
 		if (!x.to_rep() && !y.to_rep()) {
 			return BAM{0};
 		}

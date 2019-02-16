@@ -1,4 +1,5 @@
 #include "lut.hpp" // precompiled
+constexpr fp<2> focalLength{lut::focalLength};
 
 #include <tonc.h>
 
