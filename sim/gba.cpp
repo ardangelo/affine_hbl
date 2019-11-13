@@ -48,23 +48,7 @@ public:
 	}
 };
 
-template <typename T>
-struct Bitfield
-{
-	constexpr T& raw() {
-		return *reinterpret_cast<T*>(this);
-	}
-
-	constexpr T const& raw() const {
-		return *reinterpret_cast<T const*>(this);
-	}
-
-	constexpr T volatile& raw() volatile {
-		return *reinterpret_cast<T volatile*>(this);
-	}
-};
-
-struct BgCnt : public Bitfield<uint16_t>
+struct BgCnt
 {
 	uint16_t priority : 2;
 	uint16_t charBlockBase : 2;
@@ -109,7 +93,7 @@ struct BgCnt : public Bitfield<uint16_t>
 	}
 } __attribute__((packed));
 
-struct ScreenEntry : Bitfield<uint16_t> {
+struct ScreenEntry {
 	uint16_t tileId   : 10;
 	uint16_t horzFlip :  1;
 	uint16_t vertFlip :  1;
