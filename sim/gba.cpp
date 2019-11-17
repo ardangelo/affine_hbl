@@ -6,6 +6,33 @@
 
 using sys = GBA;
 
+namespace vblank_counter
+{
+	namespace
+	{
+		static constexpr auto interrupt_mask = vram::interrupt_mask{ .vblank = 1 };
+		static volatile  auto vblankCount = uint32_t{0};
+
+		void isr()
+		{
+			vblankCount++;
+			sys::irqsRaised = interrupt_mask;
+			sys::biosIrqsRaised = interrupt_mask;
+		}
+	}
+
+	void install()
+	{
+		sys::irqServiceRoutine = isr;
+		sys::irqsEnabled |= interrupt_mask;
+		sys::irqsEnabledFlag = 1;
+	}
+
+	auto get() { return vblankCount; }
+};
+
+static uint32_t GetTime() { return vblank_counter::get() / 2; }
+
 struct TicCmd {
 	uint32_t da_x;
 };
@@ -152,11 +179,10 @@ void ProcessEvents(Menu& menu, Game& game) {
 	}
 }
 
-uint32_t frame = 0;
 void TryRunTics(Menu& menu, Game& game) {
 	auto& st = game.state;
 
-	auto inputTimeElapsed = (frame / 2) - st.lastInputTime; //sys::GetTime() - st.lastInputTime;
+	auto inputTimeElapsed = GetTime() - st.lastInputTime;
 
 	st.lastInputTime += inputTimeElapsed;
 
@@ -212,6 +238,7 @@ static constexpr auto Grey  = vram::Rgb15::make(15, 15, 15);
 int main(int argc, char const* argv[])
 {
 	sys::dispCnt = 0x1100;
+	sys::dispStat = 0x8;
 
 	auto constexpr charBlockBase = 0;
 	auto constexpr screenBlockBase = 28;
@@ -249,17 +276,16 @@ int main(int argc, char const* argv[])
 
 	sys::screenBlocks[screenBlockBase][0] |= vram::ScreenEntry{ .tileId = 0x1 };
 
+	vblank_counter::install();
+
 	Menu menu{};
 	Game game{};
 
-	irq_init(nullptr);
-	irq_add(II_VBLANK, nullptr);
-
 	while (true) {
+		VBlankIntrWait();
+
 		TryRunTics(menu, game);
 		Display(menu, game);
-		frame++;
-		VBlankIntrWait();
 	}
 
 	return 0;

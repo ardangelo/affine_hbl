@@ -7,7 +7,14 @@
 struct GBA
 {
 
-static inline constexpr auto dispCnt = reg::read_write<uint16_t, 0x04000000>{};
+static inline constexpr auto biosIrqsRaised = reg::read_write<uint16_t, 0x03fffff8>{};
+static inline constexpr auto irqServiceRoutine = reg::write_only<void(*)(void), 0x03fffffc>{};
+static inline constexpr auto irqsEnabled    = reg::read_write<uint16_t, 0x04000200>{};
+static inline constexpr auto irqsRaised     = reg::read_write<uint16_t, 0x04000202>{};
+static inline constexpr auto irqsEnabledFlag = reg::read_write<uint16_t, 0x04000208>{};
+
+static inline constexpr auto dispCnt  = reg::read_write<uint16_t, 0x04000000>{};
+static inline constexpr auto dispStat = reg::read_write<uint16_t, 0x04000004>{};
 
 static inline constexpr auto bg0Cnt      = reg::read_write<uint16_t, 0x04000008>{};
 static inline constexpr auto bg0HorzOffs = reg::write_only<uint32_t, 0x04000010>{};
@@ -23,10 +30,6 @@ static inline constexpr void pump_events(event::queue_type& queue) {
 		, .state = event::Key::State::Down
 	});
 }
-
-static inline constexpr auto vcount = reg::read_only<uint16_t, 0x04000006>{};
-
-static inline constexpr uint32_t GetTime() { return uint16_t{vcount} / 2; }
 
 }; // struct GBA
 

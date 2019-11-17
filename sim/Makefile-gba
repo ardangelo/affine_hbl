@@ -25,8 +25,7 @@ all: $(ROMNAME).gba
 SRC_HEADERS := register.hpp vram.hpp system.hpp
 
 gba.o : gba.cpp $(SRC_HEADERS)
-	# $(CC) $(CXXFLAGS) $(RARCH) -c $< -S -o gba.s
-	$(CC) $(CXXFLAGS) $(RARCH) -c $< -o $@
+	$(CC) $(CXXFLAGS) $(IARCH) -c $< -o $@
 
 CODE_OBJS := gba.o
 

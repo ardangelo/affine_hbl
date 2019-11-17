@@ -134,4 +134,39 @@ struct pal_banks {
 	};
 };
 
+struct interrupt_mask
+{
+	uint16_t vblank : 1;
+	uint16_t hblank : 1;
+	uint16_t vcount : 1;
+	uint16_t timer0 : 1;
+	uint16_t timer1 : 1;
+	uint16_t timer2 : 1;
+	uint16_t timer3 : 1;
+	uint16_t serialComm : 1;
+	uint16_t dma0 : 1;
+	uint16_t dma1 : 1;
+	uint16_t dma2 : 1;
+	uint16_t dma3 : 1;
+	uint16_t keypad : 1;
+	uint16_t gamePak : 1;
+	uint16_t _ : 2;
+
+	constexpr operator uint16_t() const {
+		return (vblank << 0)
+			 | (hblank << 1)
+			 | (vcount << 2)
+			 | (timer0 << 3)
+			 | (timer1 << 4)
+			 | (timer2 << 5)
+			 | (timer3 << 6)
+			 | (serialComm << 7)
+			 | (dma0 <<  8)
+			 | (dma1 <<  9)
+			 | (dma2 << 10)
+			 | (dma3 << 11)
+			 | (gamePak << 12);
+	}
+} __attribute__((packed));
+
 } // namespace vram
