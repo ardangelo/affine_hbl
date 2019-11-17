@@ -1,8 +1,8 @@
 #pragma once
 
-#include "vram.hpp"
-
 #include "register.hpp"
+#include "vram.hpp"
+#include "event.hpp"
 
 struct GBA
 {
@@ -16,6 +16,17 @@ static inline constexpr auto palBanks = vram::pal_banks::memmap<0x05000000>{};
 
 static inline constexpr auto screenBlocks = vram::screen_blocks::memmap<0x06000000>{};
 static inline constexpr auto charBlocks   = vram::char_blocks::memmap<0x06000000>{};
+
+static inline constexpr void pump_events(event::queue_type& queue) {
+	queue.push_back(event::Key
+		{ .type  = event::Key::Type::Right
+		, .state = event::Key::State::Down
+	});
+}
+
+static inline constexpr auto vcount = reg::read_only<uint16_t, 0x04000006>{};
+
+static inline constexpr uint32_t GetTime() { return uint16_t{vcount} / 2; }
 
 }; // struct GBA
 
@@ -32,5 +43,4 @@ static inline vram::pal_banks::storage palBanks = {};
 static inline vram::screen_blocks::storage screenBlocks = {};
 static inline vram::char_blocks::storage   charBlocks = {};
 
-
-}; // struct GBA
+}; // struct SDL

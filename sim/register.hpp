@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <variant>
+
 namespace reg
 {
 
@@ -31,6 +34,23 @@ public:
 	constexpr auto& operator |= (T const& val) const {
 		ref |= val;
 		return *this;
+	}
+};
+
+template <typename T, size_t address> 
+class read_only
+{
+private:
+	static volatile inline T& ref = *reinterpret_cast<T*>(address);
+
+public:
+	constexpr static auto& Get() {
+		return ref;
+	}
+
+	template <typename U>
+	constexpr operator U() const {
+		return U{ref};
 	}
 };
 
