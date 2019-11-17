@@ -56,6 +56,9 @@ struct Menu {
 	};
 
 	constexpr void Ticker() {
+		if (state.active) {
+
+		}
 	}
 
 	State state;
@@ -72,11 +75,11 @@ struct Menu {
 struct Camera {
 	uint32_t a_x;
 
-	constexpr void Think(TicCmd const& ticCmd) {
+	void Think(TicCmd const& ticCmd) {
 		a_x += ticCmd.da_x;
 	}
 
-	constexpr void Ticker(TicCmd const& ticCmd) {
+	void Ticker(TicCmd const& ticCmd) {
 		Think(ticCmd);
 	}
 
@@ -92,12 +95,12 @@ struct Game {
 	struct State {
 		bool keydown[3];
 
-		circular_buffer<TicCmd, BackupTics> ticCmdBuf;
+		circular_queue<TicCmd, BackupTics> ticCmdQueue;
 		Tic gameTime, inputTime, lastInputTime;
 
 		constexpr State()
 			: keydown{}
-			, ticCmdBuf{}
+			, ticCmdQueue{}
 			, gameTime{0}
 			, inputTime{0}
 			, lastInputTime{0}
@@ -136,7 +139,8 @@ struct Game {
 		}
 	};
 
-	constexpr void Ticker(TicCmd const& ticCmd) {
+	void Ticker() {
+		auto const& ticCmd = state.ticCmdQueue.pop_front();
 		camera.Ticker(ticCmd);
 	}
 
@@ -149,8 +153,10 @@ struct Game {
 		, responder{state}
 	{}
 
-	constexpr void BuildTicCmd(TicCmd& cmd) const {
+	constexpr TicCmd BuildTicCmd() const {
 		auto constexpr speed = 0x1;
+
+		auto cmd = TicCmd{};
 
 		using Ty = event::Key::Type;
 		if (state.keydown[(uint32_t)Ty::Left]) {
@@ -159,56 +165,42 @@ struct Game {
 		if (state.keydown[(uint32_t)Ty::Right]) {
 			cmd.da_x += speed;
 		}
+
+		return cmd;
 	}
 };
 
 void Display(Menu const& menu, Game const& game) {
-	sys::bg0HorzOffs = game.camera.a_x;
-}
-
-void ProcessEvents(Menu& menu, Game& game) {
-	sys::pump_events(event::queue);
-
-	while (!event::queue.empty()) {
-		auto const ev = event::queue.pop_front();
-
-		if (std::visit(menu.responder, ev)) {
-			continue;
-		}
-		std::visit(game.responder, ev);
-	}
+	sys::bg0HorzOffs = game.camera.a_x % (64 * 8);
 }
 
 void TryRunTics(Menu& menu, Game& game) {
 	auto& st = game.state;
 
-	auto inputTimeElapsed = GetTime() - st.lastInputTime;
+	st.lastInputTime = st.inputTime;
+	st.inputTime = GetTime();
+	for (auto tic = st.lastInputTime; tic < st.inputTime; tic++) {
+		sys::pump_events(event::queue);
 
-	st.lastInputTime += inputTimeElapsed;
+		while (!event::queue.empty()) {
+			auto const ev = event::queue.pop_front();
 
-	while (inputTimeElapsed--) {
-		ProcessEvents(menu, game);
+			if (std::visit(menu.responder, ev)) {
+				continue;
+			}
+			std::visit(game.responder, ev);
+		}
 
-		if ((st.inputTime - st.gameTime) > (Game::BackupTics / 2)) {
+		if ((tic - st.gameTime) > (Game::BackupTics / 2)) {
 			break;
 		}
 
-		game.BuildTicCmd(st.ticCmdBuf.at(st.inputTime));
-		st.inputTime++;
+		st.ticCmdQueue.push_back(game.BuildTicCmd());
 	}
 
-	auto ticsToRun = st.inputTime - st.gameTime;
-	if (ticsToRun == 0) {
-		return;
-	}
-
-	while (ticsToRun--) {
-		if (menu.active()) {
-			menu.Ticker();
-		}
-
-		game.Ticker(game.state.ticCmdBuf.at(st.gameTime));
-		st.gameTime++;
+	for (; st.gameTime < st.inputTime; st.gameTime++) {
+		menu.Ticker();
+		game.Ticker();
 	}
 }
 
