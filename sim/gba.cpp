@@ -274,7 +274,7 @@ int main(int argc, char const* argv[])
 	Game game{};
 
 	while (true) {
-		VBlankIntrWait();
+		sys::VBlankIntrWait();
 
 		TryRunTics(menu, game);
 		Display(menu, game);

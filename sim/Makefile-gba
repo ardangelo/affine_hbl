@@ -5,8 +5,8 @@ CC			:= arm-none-eabi-g++
 GRIT		:= grit
 
 INCLUDE	:= -I../include
-LIBS		:= -ltonc
-LIBPATHS	:= -Llib
+LIBS		:=
+LIBPATHS	:=
 
 SPECS	:= -specs=gba_mb.specs
 ARCH	:= -mthumb-interwork -mthumb
