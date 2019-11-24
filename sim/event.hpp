@@ -29,16 +29,17 @@ struct circular_queue {
 
 	constexpr circular_queue() : begin{0}, end{0} {}
 
-	constexpr auto empty() const { return begin == end; }
+	constexpr bool empty() const { return end == begin; }
+	constexpr bool full()  const { return (end - begin) == N; }
 
 	constexpr void push_back(T val) {
-		buf[end] = val;
-		end = (end + 1) % N;
+		buf[end % N] = val;
+		end++;
 	}
 
 	constexpr T pop_front() {
-		auto const result = buf[begin];
-		begin = (begin + 1) % N;
+		auto const result = buf[begin % N];
+		begin++;
 		return result;
 	}
 };
@@ -59,8 +60,8 @@ namespace event {
 		State state;
 	};
 
-	using event_type = std::variant<Key>;
-	using queue_type = circular_queue<event_type, 16>;
+	using type = std::variant<Key>;
+	using queue_type = circular_queue<type, 16>;
 
 	queue_type queue;
 };

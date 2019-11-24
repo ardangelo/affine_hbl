@@ -1,4 +1,4 @@
-#include <tonc.h>
+// #include <tonc.h>
 
 #include <array>
 
@@ -33,10 +33,6 @@ namespace vblank_counter
 
 static uint32_t GetTime() { return vblank_counter::get() / 2; }
 
-struct TicCmd {
-	uint32_t da_x;
-};
-
 struct Menu {
 	struct State {
 		bool active;
@@ -44,7 +40,7 @@ struct Menu {
 		constexpr State()
 			: active{false}
 		{}
-	};
+	} state;
 
 	struct Responder {
 		State& state;
@@ -53,157 +49,189 @@ struct Menu {
 		constexpr bool operator()(Any&&) const {
 			return false;
 		}
-	};
+	} responder;
 
-	constexpr void Ticker() {
-		if (state.active) {
+	struct Ticker {
+		State& state;
 
+		constexpr void operator()() {
+			if (state.active) {
+
+			}
 		}
-	}
-
-	State state;
-	Responder responder;
+	} ticker;
 
 	constexpr Menu()
 		: state{}
 		, responder{state}
+		, ticker{state}
 	{}
 
 	constexpr bool active() const { return state.active; }
 };
 
-struct Camera {
-	uint32_t a_x;
-
-	void Think(TicCmd const& ticCmd) {
-		a_x += ticCmd.da_x;
-	}
-
-	void Ticker(TicCmd const& ticCmd) {
-		Think(ticCmd);
-	}
-
-	constexpr Camera()
-		: a_x{0}
-	{}
-};
-
 struct Game {
-	using Tic = uint32_t;
-	static constexpr auto BackupTics = 12;
-
-	struct State {
-		bool keydown[3];
-
-		circular_queue<TicCmd, BackupTics> ticCmdQueue;
-		Tic gameTime, inputTime, lastInputTime;
-
-		constexpr State()
-			: keydown{}
-			, ticCmdQueue{}
-			, gameTime{0}
-			, inputTime{0}
-			, lastInputTime{0}
-		{}
+	struct Cmd {
+		uint32_t da_x;
 	};
 
 	struct Responder {
-		State& state;
+		bool keydown[3];
 
-		constexpr bool operator()(event::Key key) const {
+		constexpr bool operator()(event::Key key) {
 			using Ty = event::Key::Type;
 			using St = event::Key::State;
 
 			switch (key.state) {
-			
+
 			case St::Down:
 				switch (key.type) {
 					case Ty::Pause:
 						return true;
 
 					default:
-						state.keydown[(uint32_t)key.type] = true;
+						keydown[(uint32_t)key.type] = true;
 						return true;
 				}
 
 			case St::Up:
-				state.keydown[(uint32_t)key.type] = false;
+				keydown[(uint32_t)key.type] = false;
 				return false;
 
 			}
 		}
 
 		template <typename Any>
-		constexpr bool operator()(Any&&) const {
+		constexpr bool operator()(Any&&) {
+			keydown[0] = 1;
 			return false;
 		}
+
+		constexpr Responder()
+			: keydown{}
+		{}
+
+		constexpr Cmd BuildCmd() const {
+			auto constexpr speed = 0x1;
+
+			auto cmd = Cmd{};
+
+			using Ty = event::Key::Type;
+			if (keydown[(uint32_t)Ty::Left]) {
+				cmd.da_x -= speed;
+			}
+			if (keydown[(uint32_t)Ty::Right]) {
+				cmd.da_x += speed;
+			}
+
+			return cmd;
+		}
+	} responder;
+
+	struct Camera {
+		uint32_t a_x;
+
+		void Think(Cmd const& cmd) {
+			a_x += cmd.da_x;
+		}
+
+		void Ticker(Cmd const& cmd) {
+			Think(cmd);
+		}
+
+		constexpr Camera()
+			: a_x{0}
+		{}
 	};
 
-	void Ticker() {
-		auto const& ticCmd = state.ticCmdQueue.pop_front();
-		camera.Ticker(ticCmd);
-	}
+	struct Ticker {
+		enum class State : uint32_t {
+			InGame
+		} state;
 
-	State state;
-	Responder responder;
-	Camera camera;
+		Camera camera;
+
+		constexpr void operator()(Cmd const& cmd) {
+			if (state == State::InGame) {
+				camera.Ticker(cmd);
+			}
+		}
+
+		constexpr Ticker()
+			: state{State::InGame}
+			, camera{}
+		{}
+	} ticker;
 
 	constexpr Game()
-		: state{}
-		, responder{state}
+		: responder{}
+		, ticker{}
 	{}
+};
 
-	constexpr TicCmd BuildTicCmd() const {
-		auto constexpr speed = 0x1;
-
-		auto cmd = TicCmd{};
-
-		using Ty = event::Key::Type;
-		if (state.keydown[(uint32_t)Ty::Left]) {
-			cmd.da_x -= speed;
-		}
-		if (state.keydown[(uint32_t)Ty::Right]) {
-			cmd.da_x += speed;
-		}
-
-		return cmd;
+template <typename T, size_t BackupTics>
+struct InputDelayBuffer : public circular_queue<T, BackupTics>
+{
+	uint32_t inputTime;
+	auto NextInputTimeFrame() {
+		auto const lastInputTime = inputTime;
+		inputTime = GetTime();
+		return std::make_pair(lastInputTime, inputTime);
 	}
 };
 
-void Display(Menu const& menu, Game const& game) {
-	sys::bg0HorzOffs = game.camera.a_x % (64 * 8);
-}
+struct World {
+	circular_queue<event::type, 16> event_queue{};
 
-void TryRunTics(Menu& menu, Game& game) {
-	auto& st = game.state;
+	static constexpr auto BackupTics = 16;
+	InputDelayBuffer<Game::Cmd, BackupTics> gameCmdQueue{};
 
-	st.lastInputTime = st.inputTime;
-	st.inputTime = GetTime();
-	for (auto tic = st.lastInputTime; tic < st.inputTime; tic++) {
-		sys::pump_events(event::queue);
+	Game game;
+	Menu menu;
 
-		while (!event::queue.empty()) {
-			auto const ev = event::queue.pop_front();
+	void FillEvents() {
+		sys::pump_events(event_queue);
+	}
+
+	void DrainEvents() {
+		while (!event_queue.empty()) {
+			auto const ev = event_queue.pop_front();
 
 			if (std::visit(menu.responder, ev)) {
 				continue;
 			}
 			std::visit(game.responder, ev);
 		}
+	}
 
-		if ((tic - st.gameTime) > (Game::BackupTics / 2)) {
-			break;
+	void TryFillCmds() {
+		auto const [lastInputTime, inputTime] = gameCmdQueue.NextInputTimeFrame();
+
+		for (auto tic = lastInputTime; tic < inputTime; tic++) {
+			FillEvents();
+			DrainEvents();
+
+			if (gameCmdQueue.full()) {
+				break;
+			} else {
+				gameCmdQueue.push_back(game.responder.BuildCmd());
+			}
 		}
-
-		st.ticCmdQueue.push_back(game.BuildTicCmd());
 	}
 
-	for (; st.gameTime < st.inputTime; st.gameTime++) {
-		menu.Ticker();
-		game.Ticker();
+	void DrainCmds() {
+		while (!gameCmdQueue.empty()) {
+			menu.ticker();
+
+			auto const cmd = gameCmdQueue.pop_front();
+			game.ticker(cmd);
+		}
 	}
+};
+
+void Display(World const& world) {
+	sys::bg0HorzOffs = world.game.ticker.camera.a_x % (64 * 8);
 }
-
 
 static constexpr auto tiles = std::array<vram::CharEntry, 2> {
 {
@@ -270,14 +298,15 @@ int main(int argc, char const* argv[])
 
 	vblank_counter::install();
 
-	Menu menu{};
-	Game game{};
+	World world{};
 
 	while (true) {
 		sys::VBlankIntrWait();
 
-		TryRunTics(menu, game);
-		Display(menu, game);
+		world.TryFillCmds();
+		world.DrainCmds();
+
+		Display(world);
 	}
 
 	return 0;
