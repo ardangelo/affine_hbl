@@ -70,46 +70,13 @@ struct Menu {
 	constexpr bool active() const { return state.active; }
 };
 
-struct Game {
-	struct Cmd {
-		uint32_t da_x;
-	};
-
-	struct Responder {
+struct World {
+	struct State {
 		bool keydown[3];
 
-		constexpr bool operator()(event::Key key) {
-			using Ty = event::Key::Type;
-			using St = event::Key::State;
-
-			switch (key.state) {
-
-			case St::Down:
-				switch (key.type) {
-					case Ty::Pause:
-						return true;
-
-					default:
-						keydown[(uint32_t)key.type] = true;
-						return true;
-				}
-
-			case St::Up:
-				keydown[(uint32_t)key.type] = false;
-				return false;
-
-			}
-		}
-
-		template <typename Any>
-		constexpr bool operator()(Any&&) {
-			keydown[0] = 1;
-			return false;
-		}
-
-		constexpr Responder()
-			: keydown{}
-		{}
+		struct Cmd {
+			uint32_t da_x;
+		};
 
 		constexpr Cmd BuildCmd() const {
 			auto constexpr speed = 0x1;
@@ -126,46 +93,80 @@ struct Game {
 
 			return cmd;
 		}
-	} responder;
 
-	struct Camera {
-		uint32_t a_x;
-
-		void Think(Cmd const& cmd) {
-			a_x += cmd.da_x;
-		}
-
-		void Ticker(Cmd const& cmd) {
-			Think(cmd);
-		}
-
-		constexpr Camera()
-			: a_x{0}
-		{}
-	};
-
-	struct Ticker {
-		enum class State : uint32_t {
+		enum class Mode : uint32_t {
 			InGame
-		} state;
+		} mode;
 
-		Camera camera;
+		struct Camera {
+			uint32_t a_x;
 
-		constexpr void operator()(Cmd const& cmd) {
-			if (state == State::InGame) {
-				camera.Ticker(cmd);
+			void Think(Cmd const& cmd) {
+				a_x += cmd.da_x;
+			}
+
+			void Ticker(Cmd const& cmd) {
+				Think(cmd);
+			}
+
+			constexpr Camera()
+				: a_x{0}
+			{}
+		} camera;
+
+		constexpr State()
+			: keydown{}
+			, mode{Mode::InGame}
+			, camera{}
+		{}
+	} state;
+
+	struct Responder {
+		State& state;
+
+		constexpr bool operator()(event::Key key) {
+			using Ty = event::Key::Type;
+			using St = event::Key::State;
+
+			switch (key.state) {
+
+			case St::Down:
+				switch (key.type) {
+					case Ty::Pause:
+						return true;
+
+					default:
+						state.keydown[(uint32_t)key.type] = true;
+						return true;
+				}
+
+			case St::Up:
+				state.keydown[(uint32_t)key.type] = false;
+				return false;
+
 			}
 		}
 
-		constexpr Ticker()
-			: state{State::InGame}
-			, camera{}
-		{}
+		template <typename Any>
+		constexpr bool operator()(Any&&) {
+			return false;
+		}
+	} responder;
+
+	struct Ticker {
+		State& state;
+
+		constexpr void operator()(State::Cmd const& cmd) {
+			if (state.mode == State::Mode::InGame) {
+				state.camera.Ticker(cmd);
+			}
+		}
 	} ticker;
 
-	constexpr Game()
-		: responder{}
-		, ticker{}
+	constexpr World()
+		: state{}
+		, responder{state}
+		, ticker{state}
 	{}
 };
 
@@ -180,13 +181,13 @@ struct InputDelayBuffer : public circular_queue<T, BackupTics>
 	}
 };
 
-struct World {
+struct Game {
 	circular_queue<event::type, 16> event_queue{};
 
 	static constexpr auto BackupTics = 16;
-	InputDelayBuffer<Game::Cmd, BackupTics> gameCmdQueue{};
+	InputDelayBuffer<World::State::Cmd, BackupTics> worldCmdQueue{};
 
-	Game game;
+	World world;
 	Menu menu;
 
 	void FillEvents() {
@@ -200,37 +201,37 @@ struct World {
 			if (std::visit(menu.responder, ev)) {
 				continue;
 			}
-			std::visit(game.responder, ev);
+			std::visit(world.responder, ev);
 		}
 	}
 
 	void TryFillCmds() {
-		auto const [lastInputTime, inputTime] = gameCmdQueue.NextInputTimeFrame();
+		auto const [lastInputTime, inputTime] = worldCmdQueue.NextInputTimeFrame();
 
 		for (auto tic = lastInputTime; tic < inputTime; tic++) {
 			FillEvents();
 			DrainEvents();
 
-			if (gameCmdQueue.full()) {
+			if (worldCmdQueue.full()) {
 				break;
 			} else {
-				gameCmdQueue.push_back(game.responder.BuildCmd());
+				worldCmdQueue.push_back(world.state.BuildCmd());
 			}
 		}
 	}
 
 	void DrainCmds() {
-		while (!gameCmdQueue.empty()) {
+		while (!worldCmdQueue.empty()) {
 			menu.ticker();
 
-			auto const cmd = gameCmdQueue.pop_front();
-			game.ticker(cmd);
+			auto const cmd = worldCmdQueue.pop_front();
+			world.ticker(cmd);
 		}
 	}
 };
 
-void Display(World const& world) {
-	sys::bg0HorzOffs = world.game.ticker.camera.a_x % (64 * 8);
+void Display(Game const& game) {
+	sys::bg0HorzOffs = game.world.state.camera.a_x % (64 * 8);
 }
 
 static constexpr auto tiles = std::array<vram::CharEntry, 2> {
@@ -298,15 +299,15 @@ int main(int argc, char const* argv[])
 
 	vblank_counter::install();
 
-	World world{};
+	Game game{};
 
 	while (true) {
 		sys::VBlankIntrWait();
 
-		world.TryFillCmds();
-		world.DrainCmds();
+		game.TryFillCmds();
+		game.DrainCmds();
 
-		Display(world);
+		Display(game);
 	}
 
 	return 0;
