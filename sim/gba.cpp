@@ -167,22 +167,18 @@ struct World {
 	{}
 };
 
-template <typename T, size_t BackupTics>
-struct InputDelayBuffer : public circular_queue<T, BackupTics>
-{
-	uint32_t inputTime;
-	auto NextInputTimeFrame() {
-		auto const lastInputTime = inputTime;
-		inputTime = GetTime();
-		return std::make_pair(lastInputTime, inputTime);
-	}
-};
-
 struct Game {
 	circular_queue<event::type, 16> event_queue;
 
 	static constexpr auto BackupTics = 16;
-	InputDelayBuffer<World::State::Cmd, BackupTics> worldCmdQueue{};
+	struct InputDelayBuffer : public circular_queue<World::State::Cmd, BackupTics> {
+		uint32_t inputTime = 0;
+		auto NextInputTimeFrame() {
+			auto const lastInputTime = inputTime;
+			inputTime = GetTime();
+			return std::make_pair(lastInputTime, inputTime);
+		}
+	} worldCmdQueue;
 
 	World world;
 	Menu menu;
@@ -230,7 +226,7 @@ struct Game {
 		sys::VBlankIntrWait();
 
 		sys::bg0HorzOffs = world.state.camera.a_x % (64 * 8);
-	#ifdef LAG
+	#if 0
 		volatile int x = 100000;
 		while (x--);
 	#endif
