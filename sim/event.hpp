@@ -48,12 +48,14 @@ namespace event {
 	struct Key {
 		enum Type : uint32_t
 			{ Pause = 0
-			, Left
 			, Right
+			, Left
+			, Up
+			, Down
 		};
 		enum State : bool
-			{ Down = 1
-			, Up = 0
+			{ On  = 1
+			, Off = 0
 		};
 
 		Type type;

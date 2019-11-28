@@ -6,13 +6,15 @@
 namespace reg
 {
 
-template <typename T, size_t address> 
+template <typename T, size_t address_>
 class read_write
 {
 private:
-	static volatile inline T& ref = *reinterpret_cast<T*>(address);
+	static volatile inline T& ref = *reinterpret_cast<T*>(address_);
 
 public:
+	constexpr static T* address = address_;
+
 	constexpr static auto& Get() {
 		return ref;
 	}
@@ -37,13 +39,15 @@ public:
 	}
 };
 
-template <typename T, size_t address> 
+template <typename T, size_t address_>
 class read_only
 {
 private:
-	static volatile inline T& ref = *reinterpret_cast<T*>(address);
+	static volatile inline T& ref = *reinterpret_cast<T*>(address_);
 
 public:
+	constexpr static T const* address = address_;
+
 	constexpr static auto& Get() {
 		return ref;
 	}
@@ -54,13 +58,15 @@ public:
 	}
 };
 
-template <typename T, size_t address> 
+template <typename T, size_t address_>
 class write_only
 {
 private:
-	static volatile inline T& ref = *reinterpret_cast<T*>(address);
+	static volatile inline T& ref = *reinterpret_cast<T*>(address_);
 
 public:
+	constexpr static T* address = address_;
+
 	constexpr static void Set(T const& val) {
 		ref = val;
 	}
@@ -76,13 +82,15 @@ public:
 namespace val
 {
 
-template <typename T> 
+template <typename T>
 class read_write
 {
 private:
 	static volatile inline T value;
 
 public:
+	constexpr static T* address = &value;
+
 	constexpr static auto& Get() {
 		return value;
 	}
@@ -107,13 +115,15 @@ public:
 	}
 };
 
-template <typename T> 
+template <typename T>
 class write_only
 {
 private:
 	static volatile inline T value;
 
 public:
+	constexpr static T* address = &value;
+
 	constexpr static void Set(T const& val) {
 		value = val;
 	}

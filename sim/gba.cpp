@@ -5,30 +5,31 @@
 
 using sys = GBA;
 
-namespace vblank_counter
+namespace irq
 {
-	namespace
-	{
-		static constexpr auto interrupt_mask = vram::interrupt_mask{ .vblank = 1 };
-		static volatile  auto vblankCount = uint32_t{0};
+	static volatile auto vblankCount = uint32_t{0};
 
-		void isr()
-		{
+	void isr()
+	{
+		auto const irqsRaised = sys::irqsRaised.Get();
+
+		if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
 			vblankCount++;
-			sys::irqsRaised = interrupt_mask;
-			sys::biosIrqsRaised = interrupt_mask;
+
+			sys::irqsRaised     = vblankMask;
+			sys::biosIrqsRaised = vblankMask;
 		}
 	}
 
 	void install()
 	{
 		sys::irqServiceRoutine = isr;
-		sys::irqsEnabled |= interrupt_mask;
+		sys::irqsEnabled = vram::interrupt_mask { .vblank = 1 };
 		sys::irqsEnabledFlag = 1;
 	}
 
-	auto get() { return vblankCount; }
-};
+	auto getVblankCount() { return vblankCount; }
+}
 
 struct Menu {
 	struct State {
@@ -67,10 +68,10 @@ struct Menu {
 
 struct World {
 	struct State {
-		bool keydown[3];
+		bool keydown[5];
 
 		struct Cmd {
-			uint32_t da_x;
+			uint32_t da_x, da_y;
 		};
 
 		constexpr Cmd BuildCmd() const {
@@ -79,11 +80,17 @@ struct World {
 			auto cmd = Cmd{};
 
 			using Ty = event::Key::Type;
+			if (keydown[Ty::Right]) {
+				cmd.da_x += speed;
+			}
 			if (keydown[Ty::Left]) {
 				cmd.da_x -= speed;
 			}
-			if (keydown[Ty::Right]) {
-				cmd.da_x += speed;
+			if (keydown[Ty::Up]) {
+				cmd.da_y -= speed;
+			}
+			if (keydown[Ty::Down]) {
+				cmd.da_y += speed;
 			}
 
 			return cmd;
@@ -94,10 +101,11 @@ struct World {
 		} mode;
 
 		struct Camera {
-			uint32_t a_x;
+			uint32_t a_x, a_y;
 
 			void Think(Cmd const& cmd) {
 				a_x += cmd.da_x;
+				a_y += cmd.da_y;
 			}
 
 			void Ticker(Cmd const& cmd) {
@@ -106,6 +114,7 @@ struct World {
 
 			constexpr Camera()
 				: a_x{0}
+				, a_y{0}
 			{}
 		} camera;
 
@@ -125,7 +134,7 @@ struct World {
 
 			switch (key.state) {
 
-			case St::Down:
+			case St::On:
 				switch (key.type) {
 					case Ty::Pause:
 						return true;
@@ -135,7 +144,7 @@ struct World {
 						return true;
 				}
 
-			case St::Up:
+			case St::Off:
 				state.keydown[key.type] = false;
 				return false;
 
@@ -168,7 +177,9 @@ struct World {
 struct Game {
 	circular_queue<event::type, 16> event_queue;
 
-	static uint32_t GetTime() { return vblank_counter::get() / 2; }
+	vram::affine::param affineParams[sys::screenHeight + 1];
+
+	static uint32_t GetTime() { return irq::getVblankCount() / 2; }
 
 	static constexpr auto BackupTics = 16;
 	struct InputDelayBuffer : public circular_queue<World::State::Cmd, BackupTics> {
@@ -225,13 +236,31 @@ struct Game {
 	void Display() {
 		sys::VBlankIntrWait();
 
-		sys::bg2P[0] = 1 << 8;
-		sys::bg2P[1] = 0 << 8;
-		sys::bg2P[2] = 0 << 8;
-		sys::bg2P[3] = 1 << 8;
+		for (int i = 0; i < 160; i++) {
+			auto const lambda = 1 << 7;
+			affineParams[i].P[0] = lambda;
+			affineParams[i].P[1] = 0;
+			affineParams[i].P[2] = 0;
+			affineParams[i].P[3] = lambda;
 
-		sys::bg2dx[0] = (world.state.camera.a_x % (64 * 8)) << 8;
-		sys::bg2dx[1] = 0 << 8;
+			affineParams[i].dx[0] = lambda * (0 + (world.state.camera.a_x % (64 * 8)));
+			affineParams[i].dx[1] = lambda * (i + (world.state.camera.a_y % (64 * 8)));
+		}
+		affineParams[160] = affineParams[0];
+
+		sys::dma3Control = 0;
+		sys::dma3Source  = (const void*)&affineParams[1];
+		sys::dma3Dest    = (void*)sys::bg2aff.base;
+		sys::dma3Control = vram::dma_control
+			{ .count = 4
+			, .destAdjust    = vram::dma_control::Adjust::Reload
+			, .sourceAdjust  = vram::dma_control::Adjust::Increment
+			, .repeatAtBlank = true
+			, .chunkSize     = vram::dma_control::ChunkSize::Bits32
+			, .timing        = vram::dma_control::Timing::Hblank
+			, .irqNotify     = false
+			, .enabled       = true
+		};
 
 	#if 0
 		volatile int x = 100000;
@@ -245,7 +274,7 @@ struct Game {
 		, world{}
 		, menu{}
 	{
-		sys::dispCnt = 0x402;
+		sys::dispControl = 0x402;
 		sys::dispStat = 0x8;
 
 		auto constexpr charBlockBase = 0;
@@ -287,7 +316,7 @@ struct Game {
 
 int main(int argc, char const* argv[])
 {
-	vblank_counter::install();
+	irq::install();
 
 	Game game{};
 

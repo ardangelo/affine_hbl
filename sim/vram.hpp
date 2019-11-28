@@ -5,9 +5,9 @@
 namespace vram
 {
 
-template <typename Base, size_t address>
+template <typename Base, size_t address_>
 struct memmap {
-	static inline auto base = reinterpret_cast<typename Base::element volatile*>(address);
+	static inline auto base = reinterpret_cast<typename Base::element volatile*>(address_);
 
 	constexpr auto& operator[] (size_t i) const {
 		return base[i];
@@ -58,6 +58,60 @@ struct bg_control
 			 | ((uint16_t)mapSize <<  14);
 	}
 } __attribute__((packed));
+static_assert(sizeof(bg_control) == sizeof(uint16_t));
+
+struct dma_control
+{
+	uint32_t count : 16;
+
+	uint32_t _ : 5;
+
+	enum Adjust : uint32_t
+		{ Increment = 0
+		, Decrement = 1
+		, None      = 2
+		, Reload    = 3
+	};
+	uint32_t destAdjust   : 2;
+	uint32_t sourceAdjust : 2;
+
+	uint32_t repeatAtBlank : 1;
+
+	enum ChunkSize : uint32_t
+		{ Bits16 = 0
+		, Bits32 = 1
+	};
+	uint32_t chunkSize : 1;
+
+	uint32_t __ : 1;
+
+	enum Timing : uint32_t
+		{ Immediate = 0
+		, Vblank    = 1
+		, Hblank    = 2
+
+		, Dma1FifoRefill = 3
+		, Dma2FifoRefill = 3
+		, Dma3AtRefresh  = 3
+	};
+	uint32_t timing : 2;
+
+	uint32_t irqNotify : 1;
+	uint32_t enabled   : 1;
+
+	constexpr operator uint32_t() const {
+		return (count         <<  0)
+			 | (destAdjust    << 21)
+			 | (sourceAdjust  << 23)
+			 | (repeatAtBlank << 25)
+			 | (chunkSize     << 26)
+			 | (timing        << 28)
+			 | (irqNotify     << 30)
+			 | (enabled       << 31);
+	}
+
+} __attribute__((packed));
+static_assert(sizeof(dma_control) == sizeof(uint32_t));
 
 struct screen_entry {
 	uint8_t buf[4];
@@ -109,19 +163,33 @@ struct char_blocks {
 };
 
 
-namespace affine {
+struct affine {
 
-struct P {
+struct P_ {
 	using element = uint16_t;
 	using storage = element[4];
 };
 
-struct dx {
+struct dx_ {
 	using element = uint32_t;
 	using storage = element[2];
 };
 
-}
+struct param_ {
+	P_::storage  P;
+	dx_::storage dx;
+} __attribute__((packed));
+static_assert(sizeof(param_) == 16);
+
+struct param : public param_ {
+	using element = param_;
+	using storage = element;
+};
+
+using P = P_;
+using dx = dx_;
+
+};
 
 struct rgb15 {
 	constexpr static uint16_t make(uint16_t r, uint16_t g, uint16_t b) {
