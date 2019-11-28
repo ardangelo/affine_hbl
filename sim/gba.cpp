@@ -1,5 +1,7 @@
 // #include <tonc.h>
 
+#include <cmath>
+
 #include "system.hpp"
 #include "resources.hpp"
 
@@ -9,12 +11,29 @@ namespace irq
 {
 	static volatile auto vblankCount = uint32_t{0};
 
+	static vram::affine::param affineParams[161];
+	static constexpr auto affineHblankDmaControl = vram::dma_control
+		{ .count = 4
+		, .destAdjust    = vram::dma_control::Adjust::Reload
+		, .sourceAdjust  = vram::dma_control::Adjust::Increment
+		, .repeatAtBlank = true
+		, .chunkSize     = vram::dma_control::ChunkSize::Bits32
+		, .timing        = vram::dma_control::Timing::Hblank
+		, .irqNotify     = false
+		, .enabled       = true
+	};
+
 	void isr()
 	{
 		auto const irqsRaised = sys::irqsRaised.Get();
 
 		if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
 			vblankCount++;
+
+			sys::dma3Control = 0;
+			sys::dma3Source  = (const void*)&affineParams[1];
+			sys::dma3Dest    = (void*)sys::bg2aff.base;
+			sys::dma3Control = affineHblankDmaControl;
 
 			sys::irqsRaised     = vblankMask;
 			sys::biosIrqsRaised = vblankMask;
@@ -233,39 +252,44 @@ struct Game {
 		DrainCmds();
 	}
 
-	void Display() {
-		sys::VBlankIntrWait();
+	void Render() {
+		auto const M7_D = 128;
+		auto const phi = .4;
+		auto const cos_phi = (uint32_t)(::cos(phi) * (1 << 8));
+		auto const sin_phi = (uint32_t)(::sin(phi) * (1 << 8));
 
-		for (int i = 0; i < 160; i++) {
-			auto const lambda = 1 << 7;
-			affineParams[i].P[0] = lambda;
+		for (int i = 0; i < sys::screenHeight; i++) {
+			auto const lam = i ? ((160 << 12) / i) : -1;
+			auto const lam_cos_phi = (lam * cos_phi) >> 8;
+			auto const lam_sin_phi = (lam * sin_phi) >> 8;
+
+			affineParams[i].P[0] = lam_cos_phi >> 4;
 			affineParams[i].P[1] = 0;
-			affineParams[i].P[2] = 0;
-			affineParams[i].P[3] = lambda;
+			affineParams[i].P[2] = lam_sin_phi >> 4;
+			affineParams[i].P[3] = 0;
 
-			affineParams[i].dx[0] = lambda * (0 + (world.state.camera.a_x % (64 * 8)));
-			affineParams[i].dx[1] = lambda * (i + (world.state.camera.a_y % (64 * 8)));
+			affineParams[i].dx[0] = (world.state.camera.a_x << 8)
+				- (  120 * (lam_cos_phi  >> 4))
+				+ ((M7_D *  lam_sin_phi) >> 4);
+			affineParams[i].dx[1] = (world.state.camera.a_y << 8)
+				- (  120 * (lam_sin_phi  >> 4))
+				- ((M7_D *  lam_cos_phi) >> 4);
 		}
-		affineParams[160] = affineParams[0];
-
-		sys::dma3Control = 0;
-		sys::dma3Source  = (const void*)&affineParams[1];
-		sys::dma3Dest    = (void*)sys::bg2aff.base;
-		sys::dma3Control = vram::dma_control
-			{ .count = 4
-			, .destAdjust    = vram::dma_control::Adjust::Reload
-			, .sourceAdjust  = vram::dma_control::Adjust::Increment
-			, .repeatAtBlank = true
-			, .chunkSize     = vram::dma_control::ChunkSize::Bits32
-			, .timing        = vram::dma_control::Timing::Hblank
-			, .irqNotify     = false
-			, .enabled       = true
-		};
+		affineParams[sys::screenHeight] = affineParams[0];
 
 	#if 0
 		volatile int x = 100000;
 		while (x--);
 	#endif
+	}
+
+	void FlipAffineBuffer() const {
+		sys::VBlankIntrWait();
+
+		for (int i = 1; i < sys::screenHeight + 1; i++) {
+			irq::affineParams[i] = affineParams[i];
+		}
+		irq::affineParams[sys::screenHeight] = affineParams[0];
 	}
 
 	Game()
@@ -311,18 +335,19 @@ struct Game {
 		}
 		sys::screenBlocks[screenBlockBase][0] =
 			vram::screen_entry{4, 0, 0, 0};
+
+		irq::install();
 	}
 };
 
 int main(int argc, char const* argv[])
 {
-	irq::install();
-
 	Game game{};
 
 	while (true) {
 		game.Simulate();
-		game.Display();
+		game.Render();
+		game.FlipAffineBuffer();
 	}
 
 	return 0;
