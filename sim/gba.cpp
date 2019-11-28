@@ -225,11 +225,14 @@ struct Game {
 	void Display() {
 		sys::VBlankIntrWait();
 
-		sys::bg2Pa = 1 << 8;
-		sys::bg2Pb = 0 << 8;
-		sys::bg2Pc = 0 << 8;
-		sys::bg2Pd = 1 << 8;
-		sys::bg2dxx = (world.state.camera.a_x % (64 * 8)) << 8;
+		sys::bg2P[0] = 1 << 8;
+		sys::bg2P[1] = 0 << 8;
+		sys::bg2P[2] = 0 << 8;
+		sys::bg2P[3] = 1 << 8;
+
+		sys::bg2dx[0] = (world.state.camera.a_x % (64 * 8)) << 8;
+		sys::bg2dx[1] = 0 << 8;
+
 	#if 0
 		volatile int x = 100000;
 		while (x--);

@@ -5,6 +5,15 @@
 namespace vram
 {
 
+template <typename Base, size_t address>
+struct memmap {
+	static inline auto base = reinterpret_cast<typename Base::element volatile*>(address);
+
+	constexpr auto& operator[] (size_t i) const {
+		return base[i];
+	}
+};
+
 struct BgCnt
 {
 	uint16_t priority : 2;
@@ -70,18 +79,8 @@ struct ScreenEntry {
 static_assert(sizeof(ScreenEntry) == 4);
 
 struct screen_blocks {
-	using ScreenBlock = uint32_t[0x200];
-
-	using storage = ScreenBlock[0x20];
-
-	template <size_t address>
-	struct memmap {
-		static inline auto base = reinterpret_cast<ScreenBlock volatile*>(address);
-
-		constexpr auto& operator[] (size_t i) const {
-			return base[i];
-		}
-	};
+	using element = uint32_t[0x200];
+	using storage = element[0x20];
 };
 
 struct CharEntry {
@@ -106,19 +105,24 @@ public:
 };
 
 struct char_blocks {
-	using CharBlock = CharEntry[0x100];
-
-	using storage = CharBlock[0x4];
-
-	template <size_t address>
-	struct memmap {
-		static inline auto base = reinterpret_cast<CharBlock volatile*>(address);
-
-		constexpr auto& operator[] (size_t i) const {
-			return base[i];
-		}
-	};
+	using element = CharEntry[0x100];
+	using storage = element[0x4];
 };
+
+
+namespace affine {
+
+struct P {
+	using element = uint16_t;
+	using storage = element[4];
+};
+
+struct dx {
+	using element = uint32_t;
+	using storage = element[2];
+};
+
+}
 
 struct Rgb15 {
 	constexpr static uint16_t make(uint16_t r, uint16_t g, uint16_t b) {
@@ -129,16 +133,8 @@ struct Rgb15 {
 };
 
 struct pal_banks {
-	using storage = uint16_t[0x100];
-
-	template <size_t address>
-	struct memmap {
-		static inline auto base = reinterpret_cast<uint16_t volatile*>(address);
-
-		constexpr auto& operator[] (size_t i) const {
-			return base[i];
-		}
-	};
+	using element = uint16_t;
+	using storage = element[0x100];
 };
 
 struct interrupt_mask
