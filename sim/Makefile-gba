@@ -22,7 +22,7 @@ ROMNAME	:= cpp
 all: $(ROMNAME).gba
 
 # compile the code object files
-SRC_HEADERS := register.hpp vram.hpp system.hpp
+SRC_HEADERS := register.hpp vram.hpp system.hpp resources.hpp
 
 gba.o : gba.cpp $(SRC_HEADERS)
 	$(CC) $(CXXFLAGS) $(IARCH) -c $< -o $@

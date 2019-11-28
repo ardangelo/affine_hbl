@@ -30,8 +30,6 @@ namespace vblank_counter
 	auto get() { return vblankCount; }
 };
 
-static uint32_t GetTime() { return vblank_counter::get() / 2; }
-
 struct Menu {
 	struct State {
 		bool active;
@@ -170,6 +168,8 @@ struct World {
 struct Game {
 	circular_queue<event::type, 16> event_queue;
 
+	static uint32_t GetTime() { return vblank_counter::get() / 2; }
+
 	static constexpr auto BackupTics = 16;
 	struct InputDelayBuffer : public circular_queue<World::State::Cmd, BackupTics> {
 		uint32_t inputTime = 0;
@@ -225,57 +225,60 @@ struct Game {
 	void Display() {
 		sys::VBlankIntrWait();
 
-		sys::bg0HorzOffs = world.state.camera.a_x % (64 * 8);
+		sys::bg2Pa = 1 << 8;
+		sys::bg2Pb = 0 << 8;
+		sys::bg2Pc = 0 << 8;
+		sys::bg2Pd = 1 << 8;
+		sys::bg2dxx = (world.state.camera.a_x % (64 * 8)) << 8;
 	#if 0
 		volatile int x = 100000;
 		while (x--);
 	#endif
 	}
 
-	constexpr Game()
+	Game()
 		: event_queue{}
 		, worldCmdQueue{}
 		, world{}
 		, menu{}
 	{
-		sys::dispCnt = 0x1100;
+		sys::dispCnt = 0x402;
 		sys::dispStat = 0x8;
 
 		auto constexpr charBlockBase = 0;
-		auto constexpr screenBlockBase = 28;
+		auto constexpr screenBlockBase = 8;
 
-		sys::bg0Cnt = vram::BgCnt
+		sys::bg2Cnt = vram::BgCnt
 			{ .priority = 0
 			, .charBlockBase = charBlockBase
 			, .mosaicEnabled = false
-			, .palMode = vram::BgCnt::PalMode::Bits4
+			, .palMode = vram::BgCnt::PalMode::Bits8
 			, .screenBlockBase = screenBlockBase
 			, .affineWrapEnabled = false
-			, .mapSize = vram::BgCnt::MapSize::Reg64x64
+			, .mapSize = vram::BgCnt::MapSize::Aff64x64
 		};
 
-		sys::palBanks[0][1] = res::Red;
-		sys::palBanks[1][1] = res::Blue;
-		sys::palBanks[2][1] = res::Green;
-		sys::palBanks[3][1] = res::Grey;
+		sys::bg2Cnt |= vram::BgCnt{ .affineWrapEnabled = true };
+
+		sys::palBanks[1] = res::Red;
+		sys::palBanks[2] = res::Blue;
+		sys::palBanks[3] = res::Green;
+		sys::palBanks[4] = res::Grey;
 
 		sys::charBlocks[0][0] = res::tiles[0];
 		sys::charBlocks[0][1] = res::tiles[1];
+		sys::charBlocks[0][2] = res::tiles[2];
+		sys::charBlocks[0][3] = res::tiles[3];
+		sys::charBlocks[0][4] = res::tiles[4];
 
-		for (uint32_t screenBlockOffs = 0; screenBlockOffs < 4; screenBlockOffs++) {
-			for (uint32_t screenEntryIdx = 0; screenEntryIdx < 32 * 32; screenEntryIdx++) {
-				sys::screenBlocks[screenBlockBase + screenBlockOffs][screenEntryIdx] = vram::ScreenEntry
-					{ .tileId = 0
-					, .horzFlip = 0
-					, .vertFlip = 0
-					, .palBank = (uint16_t)screenBlockOffs
-				};
+		for (uint8_t quadrant = 0; quadrant < 4; quadrant++) {
+			for (uint32_t screenEntryIdx = 0; screenEntryIdx < 0x100; screenEntryIdx++) {
+				sys::screenBlocks[screenBlockBase][(quadrant * 0x100) + screenEntryIdx] =
+					vram::ScreenEntry{quadrant, quadrant, quadrant, quadrant};
 			}
 		}
-
-		sys::bg0Cnt |= vram::BgCnt{ .affineWrapEnabled = true };
-
-		sys::screenBlocks[screenBlockBase][0] |= vram::ScreenEntry{ .tileId = 0x1 };
+		sys::screenBlocks[screenBlockBase][0] =
+			vram::ScreenEntry{4, 0, 0, 0};
 	}
 };
 

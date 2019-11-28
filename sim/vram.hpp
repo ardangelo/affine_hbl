@@ -51,22 +51,26 @@ struct BgCnt
 } __attribute__((packed));
 
 struct ScreenEntry {
-	uint16_t tileId   : 10;
-	uint16_t horzFlip :  1;
-	uint16_t vertFlip :  1;
-	uint16_t palBank  :  4;
+	uint8_t buf[4];
 
-	constexpr operator uint16_t() const {
-		return (tileId   <<  0)
-			 | (horzFlip << 10)
-			 | (vertFlip << 11)
-			 | (palBank  << 12);
+	constexpr ScreenEntry() : buf{} {}
+
+	constexpr ScreenEntry(std::initializer_list<uint8_t> indices)
+		: buf
+			{ indices.begin()[0], indices.begin()[1]
+			, indices.begin()[2], indices.begin()[3]
+		}
+	{}
+
+	constexpr operator uint32_t() const {
+		return (buf[0] <<  0) | (buf[1] <<  8)
+			 | (buf[2] << 16) | (buf[3] << 24);
 	}
 } __attribute__((packed));
-static_assert(sizeof(ScreenEntry) == 2);
+static_assert(sizeof(ScreenEntry) == 4);
 
 struct screen_blocks {
-	using ScreenBlock = uint16_t[0x400];
+	using ScreenBlock = uint32_t[0x200];
 
 	using storage = ScreenBlock[0x20];
 
@@ -81,23 +85,28 @@ struct screen_blocks {
 };
 
 struct CharEntry {
-	uint32_t buf[8];
+	uint32_t buf[16];
 
 public:
 	constexpr CharEntry() : buf{} {}
 
 	constexpr CharEntry(std::initializer_list<uint32_t> lines)
-		: buf{lines.begin()[0], lines.begin()[1], lines.begin()[2], lines.begin()[3], lines.begin()[4], lines.begin()[5], lines.begin()[6], lines.begin()[7]}
+		: buf
+			{ lines.begin()[ 0], lines.begin()[ 1], lines.begin()[ 2], lines.begin()[ 3]
+			, lines.begin()[ 4], lines.begin()[ 5], lines.begin()[ 6], lines.begin()[ 7]
+			, lines.begin()[ 8], lines.begin()[ 9], lines.begin()[10], lines.begin()[11]
+			, lines.begin()[12], lines.begin()[13], lines.begin()[14], lines.begin()[15]
+		}
 	{}
 
 	auto& operator= (CharEntry const& rhs) volatile {
-		std::copy(rhs.buf, rhs.buf + 8, buf);
+		std::copy(rhs.buf, rhs.buf + 16, buf);
 		return *this;
 	}
 };
 
 struct char_blocks {
-	using CharBlock = CharEntry[0x200];
+	using CharBlock = CharEntry[0x100];
 
 	using storage = CharBlock[0x4];
 
@@ -120,13 +129,11 @@ struct Rgb15 {
 };
 
 struct pal_banks {
-	using PalBank = uint16_t[0x10];
-
-	using storage = PalBank[0x10];
+	using storage = uint16_t[0x100];
 
 	template <size_t address>
 	struct memmap {
-		static inline auto base = reinterpret_cast<PalBank volatile*>(address);
+		static inline auto base = reinterpret_cast<uint16_t volatile*>(address);
 
 		constexpr auto& operator[] (size_t i) const {
 			return base[i];

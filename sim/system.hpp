@@ -22,8 +22,13 @@ static inline constexpr auto irqsEnabledFlag   = reg::read_write<uint16_t, 0x040
 static inline constexpr auto dispCnt  = reg::read_write<uint16_t, 0x04000000>{};
 static inline constexpr auto dispStat = reg::read_write<uint16_t, 0x04000004>{};
 
-static inline constexpr auto bg0Cnt      = reg::read_write<uint16_t, 0x04000008>{};
-static inline constexpr auto bg0HorzOffs = reg::write_only<uint32_t, 0x04000010>{};
+static inline constexpr auto bg2Cnt = reg::read_write<uint16_t, 0x0400000c>{};
+static inline constexpr auto bg2Pa  = reg::read_write<uint16_t, 0x04000020>{};
+static inline constexpr auto bg2Pb  = reg::read_write<uint16_t, 0x04000022>{};
+static inline constexpr auto bg2Pc  = reg::read_write<uint16_t, 0x04000024>{};
+static inline constexpr auto bg2Pd  = reg::read_write<uint16_t, 0x04000026>{};
+static inline constexpr auto bg2dxx = reg::read_write<uint32_t, 0x04000028>{};
+static inline constexpr auto bg2dxy = reg::read_write<uint32_t, 0x0400002c>{};
 
 static inline constexpr auto palBanks = vram::pal_banks::memmap<0x05000000>{};
 
