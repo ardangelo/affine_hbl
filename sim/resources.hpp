@@ -6,7 +6,7 @@
 
 namespace res {
 
-static constexpr auto tiles = std::array<vram::CharEntry, 5> {
+static constexpr auto tiles = std::array<vram::char_entry, 5> {
 {
 	{ 0x01010101, 0x01010101
 	, 0x01010101, 0x00010101
@@ -59,9 +59,9 @@ static constexpr auto tiles = std::array<vram::CharEntry, 5> {
 	}
 } };
 
-static constexpr auto Red   = vram::Rgb15::make(31,  0,  0);
-static constexpr auto Blue  = vram::Rgb15::make( 0, 31,  0);
-static constexpr auto Green = vram::Rgb15::make( 0,  0, 31);
-static constexpr auto Grey  = vram::Rgb15::make(15, 15, 15);
+static constexpr auto Red   = vram::rgb15::make(31,  0,  0);
+static constexpr auto Blue  = vram::rgb15::make( 0, 31,  0);
+static constexpr auto Green = vram::rgb15::make( 0,  0, 31);
+static constexpr auto Grey  = vram::rgb15::make(15, 15, 15);
 
 }

@@ -14,7 +14,7 @@ struct memmap {
 	}
 };
 
-struct BgCnt
+struct bg_control
 {
 	uint16_t priority : 2;
 	uint16_t charBlockBase : 2;
@@ -23,19 +23,19 @@ struct BgCnt
 
 	uint16_t mosaicEnabled : 1;
 
-	enum class PalMode : uint16_t
+	enum PalMode : uint16_t
 		{ Bits4 = 0
 		, Bits8 = 1
 
 		, Color16  = 0
 		, Color256 = 1
 	};
-	PalMode palMode : 1;
+	uint16_t palMode : 1;
 
 	uint16_t screenBlockBase : 5;
 	uint16_t affineWrapEnabled : 1;
 
-	enum class MapSize : uint16_t
+	enum MapSize : uint16_t
 		{ Reg32x32 = 0
 		, Reg64x32 = 1
 		, Reg32x64 = 2
@@ -46,7 +46,7 @@ struct BgCnt
 		, Aff64x64 = 2
 		, Aff128x128 = 3
 	};
-	MapSize mapSize : 2;
+	uint16_t mapSize : 2;
 
 	constexpr operator uint16_t() const {
 		return (priority          <<  0)
@@ -59,12 +59,12 @@ struct BgCnt
 	}
 } __attribute__((packed));
 
-struct ScreenEntry {
+struct screen_entry {
 	uint8_t buf[4];
 
-	constexpr ScreenEntry() : buf{} {}
+	constexpr screen_entry() : buf{} {}
 
-	constexpr ScreenEntry(std::initializer_list<uint8_t> indices)
+	constexpr screen_entry(std::initializer_list<uint8_t> indices)
 		: buf
 			{ indices.begin()[0], indices.begin()[1]
 			, indices.begin()[2], indices.begin()[3]
@@ -76,20 +76,20 @@ struct ScreenEntry {
 			 | (buf[2] << 16) | (buf[3] << 24);
 	}
 } __attribute__((packed));
-static_assert(sizeof(ScreenEntry) == 4);
+static_assert(sizeof(screen_entry) == 4);
 
 struct screen_blocks {
 	using element = uint32_t[0x200];
 	using storage = element[0x20];
 };
 
-struct CharEntry {
+struct char_entry {
 	uint32_t buf[16];
 
 public:
-	constexpr CharEntry() : buf{} {}
+	constexpr char_entry() : buf{} {}
 
-	constexpr CharEntry(std::initializer_list<uint32_t> lines)
+	constexpr char_entry(std::initializer_list<uint32_t> lines)
 		: buf
 			{ lines.begin()[ 0], lines.begin()[ 1], lines.begin()[ 2], lines.begin()[ 3]
 			, lines.begin()[ 4], lines.begin()[ 5], lines.begin()[ 6], lines.begin()[ 7]
@@ -98,14 +98,13 @@ public:
 		}
 	{}
 
-	auto& operator= (CharEntry const& rhs) volatile {
+	void operator= (char_entry const& rhs) volatile {
 		std::copy(rhs.buf, rhs.buf + 16, buf);
-		return *this;
 	}
 };
 
 struct char_blocks {
-	using element = CharEntry[0x100];
+	using element = char_entry[0x100];
 	using storage = element[0x4];
 };
 
@@ -124,7 +123,7 @@ struct dx {
 
 }
 
-struct Rgb15 {
+struct rgb15 {
 	constexpr static uint16_t make(uint16_t r, uint16_t g, uint16_t b) {
 		return ((r & 0x1f) << (5 * 0))
 		     | ((g & 0x1f) << (5 * 1))

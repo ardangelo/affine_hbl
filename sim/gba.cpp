@@ -79,10 +79,10 @@ struct World {
 			auto cmd = Cmd{};
 
 			using Ty = event::Key::Type;
-			if (keydown[(uint32_t)Ty::Left]) {
+			if (keydown[Ty::Left]) {
 				cmd.da_x -= speed;
 			}
-			if (keydown[(uint32_t)Ty::Right]) {
+			if (keydown[Ty::Right]) {
 				cmd.da_x += speed;
 			}
 
@@ -131,12 +131,12 @@ struct World {
 						return true;
 
 					default:
-						state.keydown[(uint32_t)key.type] = true;
+						state.keydown[key.type] = true;
 						return true;
 				}
 
 			case St::Up:
-				state.keydown[(uint32_t)key.type] = false;
+				state.keydown[key.type] = false;
 				return false;
 
 			}
@@ -251,17 +251,17 @@ struct Game {
 		auto constexpr charBlockBase = 0;
 		auto constexpr screenBlockBase = 8;
 
-		sys::bg2Cnt = vram::BgCnt
+		sys::bg2Control = vram::bg_control
 			{ .priority = 0
 			, .charBlockBase = charBlockBase
 			, .mosaicEnabled = false
-			, .palMode = vram::BgCnt::PalMode::Bits8
+			, .palMode = vram::bg_control::PalMode::Bits8
 			, .screenBlockBase = screenBlockBase
 			, .affineWrapEnabled = false
-			, .mapSize = vram::BgCnt::MapSize::Aff64x64
+			, .mapSize = vram::bg_control::MapSize::Aff64x64
 		};
 
-		sys::bg2Cnt |= vram::BgCnt{ .affineWrapEnabled = true };
+		sys::bg2Control |= vram::bg_control{ .affineWrapEnabled = true };
 
 		sys::palBanks[1] = res::Red;
 		sys::palBanks[2] = res::Blue;
@@ -277,11 +277,11 @@ struct Game {
 		for (uint8_t quadrant = 0; quadrant < 4; quadrant++) {
 			for (uint32_t screenEntryIdx = 0; screenEntryIdx < 0x100; screenEntryIdx++) {
 				sys::screenBlocks[screenBlockBase][(quadrant * 0x100) + screenEntryIdx] =
-					vram::ScreenEntry{quadrant, quadrant, quadrant, quadrant};
+					vram::screen_entry{quadrant, quadrant, quadrant, quadrant};
 			}
 		}
 		sys::screenBlocks[screenBlockBase][0] =
-			vram::ScreenEntry{4, 0, 0, 0};
+			vram::screen_entry{4, 0, 0, 0};
 	}
 };
 

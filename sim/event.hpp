@@ -46,12 +46,12 @@ struct circular_queue {
 
 namespace event {
 	struct Key {
-		enum class Type : uint32_t
+		enum Type : uint32_t
 			{ Pause = 0
 			, Left
 			, Right
 		};
-		enum class State : bool
+		enum State : bool
 			{ Down = 1
 			, Up = 0
 		};
