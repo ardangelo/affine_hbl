@@ -4,6 +4,7 @@
 
 #include "system.hpp"
 #include "resources.hpp"
+#include "math.hpp"
 
 using sys = GBA;
 
@@ -86,15 +87,17 @@ struct Menu {
 };
 
 struct World {
+	using coord_fp = math::fixed_point<4, uint32_t>;
+
 	struct State {
 		bool keydown[5];
 
 		struct Cmd {
-			uint32_t da_x, da_y;
+			coord_fp da_x, da_y;
 		};
 
 		constexpr Cmd BuildCmd() const {
-			auto constexpr speed = 0x1;
+			auto constexpr speed = coord_fp{0x1};
 
 			auto cmd = Cmd{};
 
@@ -120,7 +123,7 @@ struct World {
 		} mode;
 
 		struct Camera {
-			uint32_t a_x, a_y;
+			coord_fp a_x, a_y;
 
 			void Think(Cmd const& cmd) {
 				a_x += cmd.da_x;
@@ -196,7 +199,7 @@ struct World {
 struct Game {
 	circular_queue<event::type, 16> event_queue;
 
-	vram::affine::param affineParams[sys::screenHeight + 1];
+	vram::affine::param affineParams[sys::screenHeight];
 
 	static uint32_t GetTime() { return irq::getVblankCount() / 2; }
 
@@ -253,29 +256,40 @@ struct Game {
 	}
 
 	void Render() {
-		auto const M7_D = 128;
-		auto const phi = .4;
-		auto const cos_phi = (uint32_t)(::cos(phi) * (1 << 8));
-		auto const sin_phi = (uint32_t)(::sin(phi) * (1 << 8));
+		auto const& camera = world.state.camera;
+
+		using fp0      = math::fixed_point< 0, uint32_t>;
+		using trig_fp  = math::fixed_point< 8, uint32_t>;
+		using scale_fp = math::fixed_point<12, uint32_t>;
+		using P_fp     = math::fixed_point< 8, uint16_t>;
+		using dx_fp    = math::fixed_point< 8, uint32_t>;
+
+		auto const M7_D = fp0{128};
+		auto const phi = 0.4;
+		auto const cos_phi = trig_fp{::cos(phi)};
+		auto const sin_phi = trig_fp{::sin(phi)};
 
 		for (int i = 0; i < sys::screenHeight; i++) {
-			auto const lam = i ? ((160 << 12) / i) : -1;
-			auto const lam_cos_phi = (lam * cos_phi) >> 8;
-			auto const lam_sin_phi = (lam * sin_phi) >> 8;
+			auto const lam = scale_fp{scale_fp{80} / fp0{i}};
+			auto const lam_cos_phi = scale_fp{lam * cos_phi};
+			auto const lam_sin_phi = scale_fp{lam * sin_phi};
 
-			affineParams[i].P[0] = lam_cos_phi >> 4;
+			affineParams[i].P[0] = P_fp{lam_cos_phi}.to_rep();
 			affineParams[i].P[1] = 0;
-			affineParams[i].P[2] = lam_sin_phi >> 4;
+			affineParams[i].P[2] = P_fp{lam_sin_phi}.to_rep();
 			affineParams[i].P[3] = 0;
 
-			affineParams[i].dx[0] = (world.state.camera.a_x << 8)
-				- (  120 * (lam_cos_phi  >> 4))
-				+ ((M7_D *  lam_sin_phi) >> 4);
-			affineParams[i].dx[1] = (world.state.camera.a_y << 8)
-				- (  120 * (lam_sin_phi  >> 4))
-				- ((M7_D *  lam_cos_phi) >> 4);
+			affineParams[i].dx[0] = dx_fp
+				{ dx_fp{camera.a_x}
+				- (fp0{120} * dx_fp{lam_cos_phi})
+				+ dx_fp{M7_D * lam_sin_phi}
+			}.to_rep();
+			affineParams[i].dx[1] = dx_fp
+				{ dx_fp{camera.a_y}
+				- (fp0{120} * dx_fp{lam_sin_phi})
+				- dx_fp{M7_D * lam_cos_phi}
+			}.to_rep();
 		}
-		affineParams[sys::screenHeight] = affineParams[0];
 
 	#if 0
 		volatile int x = 100000;
@@ -286,7 +300,7 @@ struct Game {
 	void FlipAffineBuffer() const {
 		sys::VBlankIntrWait();
 
-		for (int i = 1; i < sys::screenHeight + 1; i++) {
+		for (int i = 0; i < sys::screenHeight; i++) {
 			irq::affineParams[i] = affineParams[i];
 		}
 		irq::affineParams[sys::screenHeight] = affineParams[0];
