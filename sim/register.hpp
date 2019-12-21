@@ -79,59 +79,29 @@ public:
 
 } // namespace reg
 
-namespace val
+
+template <typename Applier, typename Value>
+struct io_val
 {
+	Value value;
 
-template <typename T>
-class read_write
-{
-private:
-	static volatile inline T value;
+	auto& operator= (Value const raw) {
+		value = raw;
+		Applier::apply(value);
+		return *this;
+	}
 
-public:
-	constexpr static T* address = &value;
+	auto& operator|= (Value const raw) {
+		value |= raw;
+		Applier::apply(value);
+		return *this;
+	}
 
-	constexpr static auto& Get() {
+	auto& Get() {
 		return value;
 	}
 
-	constexpr static void Set(T const& val) {
-		value = val;
-	}
-
-	template <typename U>
-	constexpr operator U() const {
-		return U{value};
-	}
-
-	constexpr auto& operator=(T const& val) const {
-		value = val;
-		return *this;
-	}
-
-	constexpr auto& operator |= (T const& val) const {
-		value |= val;
-		return *this;
+	auto const& Get() const {
+		return value;
 	}
 };
-
-template <typename T>
-class write_only
-{
-private:
-	static volatile inline T value;
-
-public:
-	constexpr static T* address = &value;
-
-	constexpr static void Set(T const& val) {
-		value = val;
-	}
-
-	constexpr auto& operator=(T const& val) const {
-		value = val;
-		return *this;
-	}
-};
-
-} // namespace reg
