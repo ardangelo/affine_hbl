@@ -1,6 +1,6 @@
 #include <assert.h>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <array>
 
@@ -11,9 +11,9 @@ using CharEntry = std::array<uint32_t, bpp>;
 struct ScreenEntry
 {
 	uint16_t tileId : 10;
-	bool horFlip    :  1;
-	bool verFlip    :  1;
-	uint8_t palBank :  4;
+	uint16_t horFlip    :  1;
+	uint16_t verFlip    :  1;
+	uint16_t palBank :  4;
 } __attribute__((packed));
 static_assert(sizeof(ScreenEntry) == 2);
 
@@ -44,9 +44,9 @@ static constexpr auto tiles = std::array<CharEntry, 2>
 
 struct Rgb15
 {
-	using Channel = uint8_t;
+	using Channel = uint16_t;
 
-	bool _    : 1;
+	Channel _ : 1;
 	Channel r : 5;
 	Channel g : 5;
 	Channel b : 5;
@@ -87,7 +87,15 @@ struct Bg64x64
 	}
 };
 
-int main(int argc, char const* argv[]) {
+
+int
+#ifdef _WIN32
+WinMain
+#else
+main
+#endif
+	(int argc, char const* argv[]) {
+
 	auto bg0 = Bg64x64{};
 
 	bg0.horzOffs = 0;
