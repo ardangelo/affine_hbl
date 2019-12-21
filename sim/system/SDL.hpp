@@ -14,7 +14,7 @@ struct SDL
 static inline constexpr auto screenWidth  = 240;
 static inline constexpr auto screenHeight = 160;
 
-struct Display
+struct SDLState
 {
 	using unique_SDL_Renderer = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>;
 	unique_SDL_Renderer renderer{nullptr, SDL_DestroyRenderer};
@@ -22,7 +22,7 @@ struct Display
 	using unique_SDL_Window = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
 	unique_SDL_Window window{nullptr, SDL_DestroyWindow};
 
-	Display()
+	SDLState()
 	{
 		SDL_Init(SDL_INIT_VIDEO);
 
@@ -38,12 +38,12 @@ struct Display
 		SDL_RenderClear(renderer.get());
 	}
 
-	~Display()
+	~SDLState()
 	{
 		SDL_Quit();
 	}
 };
-static inline auto display = Display{};
+static inline auto sdlState = SDLState{};
 
 struct DispControl : public io_val<DispControl, uint16_t>
 {
@@ -158,10 +158,20 @@ static inline auto screenBlocks = vram::screen_blocks::storage{};
 static inline auto charBlocks   = vram::char_blocks::storage{};
 
 static inline void VBlankIntrWait() {
-
+	SDL_RenderPresent(sdlState.renderer.get());
 }
 
-static inline constexpr void pump_events(event::queue_type& queue) {
+static inline void pump_events(event::queue_type& queue) {
+	SDL_Event event;
+
+	if (!SDL_PollEvent(&event)) {
+		return;
+	}
+
+	if (event.type == SDL_QUIT) {
+		exit(0);
+	}
+
 	queue.push_back(event::Key
 		{ .type  = event::Key::Type::Right
 		, .state = event::Key::State::On
