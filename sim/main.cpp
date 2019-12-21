@@ -1,92 +1,363 @@
-#include <assert.h>
+#include <cmath>
 
-#include <SDL.h>
+#include "resources.hpp"
+#include "math.hpp"
 
-#include <array>
+#if defined(__gba)
+#include "system/GBA.hpp"
+using sys = GBA;
 
-static constexpr auto bpp = 8;
-static constexpr auto pitch = bpp * 8;
-using CharEntry = std::array<uint32_t, bpp>;
+#elif defined(__sdl)
+#include "system/SDL.hpp"
+using sys = SDL;
 
-struct ScreenEntry
+#endif
+
+namespace irq
 {
-	uint16_t tileId : 10;
-	uint16_t horFlip    :  1;
-	uint16_t verFlip    :  1;
-	uint16_t palBank :  4;
-} __attribute__((packed));
-static_assert(sizeof(ScreenEntry) == 2);
+	static volatile auto vblankCount = uint32_t{0};
 
-static constexpr auto charEntries = 0x4000 / sizeof(CharEntry);
-using CharBlock = std::array<CharEntry, charEntries>;
+	static vram::affine::param affineParams[161];
+	static constexpr auto affineHblankDmaControl = vram::dma_control
+		{ .count = 4
+		, .destAdjust    = vram::dma_control::Adjust::Reload
+		, .sourceAdjust  = vram::dma_control::Adjust::Increment
+		, .repeatAtBlank = true
+		, .chunkSize     = vram::dma_control::ChunkSize::Bits32
+		, .timing        = vram::dma_control::Timing::Hblank
+		, .irqNotify     = false
+		, .enabled       = true
+	};
 
-static constexpr auto screenBlockHeight = 32;
-static constexpr auto screenBlockWidth  = 32;
-static constexpr auto screenEntries = 0x800 / sizeof(ScreenEntry);
-using ScreenBlock = std::array<ScreenEntry, screenEntries>;
+	void isr()
+	{
+		auto const irqsRaised = sys::irqsRaised.Get();
 
-static constexpr auto tiles = std::array<CharEntry, 2>
-{ CharEntry
-	{ 0x11111111
-	, 0x01111111
-	, 0x01111111
-	, 0x01111111
-	, 0x01111111
-	, 0x01111111
-	, 0x01111111
-	, 0x00000001
+		if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
+			vblankCount++;
+
+			sys::dma3Control = 0;
+			sys::dma3Source  = (const void*)&affineParams[1];
+			sys::dma3Dest    = (void*)sys::bg2aff.begin();
+			sys::dma3Control = affineHblankDmaControl;
+
+			sys::irqsRaised     = vblankMask;
+			sys::biosIrqsRaised = vblankMask;
+		}
 	}
-, CharEntry
-	{ 0x00000000, 0x00100100, 0x01100110, 0x00011000
-	, 0x00011000, 0x01100110, 0x00100100, 0x00000000
+
+	void install()
+	{
+		sys::irqServiceRoutine = isr;
+		sys::irqsEnabled = vram::interrupt_mask { .vblank = 1 };
+		sys::irqsEnabledFlag = 1;
 	}
+
+	auto getVblankCount() { return vblankCount; }
+}
+
+struct Menu {
+	struct State {
+		bool active;
+
+		constexpr State()
+			: active{false}
+		{}
+	} state;
+
+	struct Responder {
+		State& state;
+
+		template <typename Any>
+		constexpr bool operator()(Any&&) const {
+			return false;
+		}
+	} responder;
+
+	struct Ticker {
+		State& state;
+
+		constexpr void operator()() {
+			if (state.active) {
+
+			}
+		}
+	} ticker;
+
+	constexpr Menu()
+		: state{}
+		, responder{state}
+		, ticker{state}
+	{}
 };
 
-struct Rgb15
-{
-	using Channel = uint16_t;
+struct World {
+	using coord_fp = math::fixed_point<4, uint32_t>;
 
-	Channel _ : 1;
-	Channel r : 5;
-	Channel g : 5;
-	Channel b : 5;
+	struct State {
+		bool keydown[5];
 
-	constexpr Rgb15() : _{0}, r{0}, g{0}, b{0} {}
+		struct Cmd {
+			coord_fp da_x, da_y;
+		};
 
-	constexpr Rgb15(Channel r_, Channel g_, Channel b_) : _{0}, r{r_}, g{g_}, b{b_} {}
+		constexpr Cmd BuildCmd() const {
+			auto constexpr speed = coord_fp{0x1};
 
-} __attribute__((packed));
-static_assert(sizeof(Rgb15) == 2);
+			auto cmd = Cmd{};
 
-using BgPal = std::array<Rgb15, 16>;
+			using Ty = event::Key::Type;
+			if (keydown[Ty::Right]) {
+				cmd.da_x += speed;
+			}
+			if (keydown[Ty::Left]) {
+				cmd.da_x -= speed;
+			}
+			if (keydown[Ty::Up]) {
+				cmd.da_y -= speed;
+			}
+			if (keydown[Ty::Down]) {
+				cmd.da_y += speed;
+			}
 
-static auto bgPalBanks = std::array<BgPal, 16>{};
+			return cmd;
+		}
 
-struct Bg64x64
-{
-	uint32_t horzOffs, vertOffs;
+		enum class Mode : uint32_t {
+			InGame
+		} mode;
 
-	std::array<CharBlock,   1> charBlocks;
-	std::array<ScreenBlock, 4> screenBlocks;
-	
-	static auto charBlockIdx(auto tileId) {
-		return (tileId / charEntries);
-	}
+		struct Camera {
+			coord_fp a_x, a_y;
 
-	static auto charEntryIdx(auto tileId) {
-		return (tileId % charEntries);
-	}
+			void Think(Cmd const& cmd) {
+				a_x += cmd.da_x;
+				a_y += cmd.da_y;
+			}
 
-	static auto screenBlockIdx(auto tx, auto ty) {
-		return (ty / screenBlockHeight) * (pitch / 32) + (tx / screenBlockWidth);
-	}
+			void Ticker(Cmd const& cmd) {
+				Think(cmd);
+			}
 
-	static auto screenEntryIdx(auto tx, auto ty) {
-		return (ty % screenBlockHeight) * screenBlockHeight
-		     + (tx % screenBlockWidth);
-	}
+			constexpr Camera()
+				: a_x{0}
+				, a_y{0}
+			{}
+		} camera;
+
+		constexpr State()
+			: keydown{}
+			, mode{Mode::InGame}
+			, camera{}
+		{}
+	} state;
+
+	struct Responder {
+		State& state;
+
+		constexpr bool operator()(event::Key key) {
+			using Ty = event::Key::Type;
+			using St = event::Key::State;
+
+			switch (key.state) {
+
+			case St::On:
+				switch (key.type) {
+					case Ty::Pause:
+						return true;
+
+					default:
+						state.keydown[key.type] = true;
+						return true;
+				}
+
+			case St::Off:
+				state.keydown[key.type] = false;
+				return false;
+
+			}
+		}
+
+		template <typename Any>
+		constexpr bool operator()(Any&&) {
+			return false;
+		}
+	} responder;
+
+	struct Ticker {
+		State& state;
+
+		constexpr void operator()(State::Cmd const& cmd) {
+			if (state.mode == State::Mode::InGame) {
+				state.camera.Ticker(cmd);
+			}
+		}
+	} ticker;
+
+	constexpr World()
+		: state{}
+		, responder{state}
+		, ticker{state}
+	{}
 };
 
+struct Game {
+	circular_queue<event::type, 16> event_queue;
+
+	vram::affine::param affineParams[sys::screenHeight];
+
+	static uint32_t GetTime() { return irq::getVblankCount() / 2; }
+
+	static constexpr auto BackupTics = 16;
+	struct InputDelayBuffer : public circular_queue<World::State::Cmd, BackupTics> {
+		uint32_t inputTime = 0;
+		auto NextInputTimeFrame() {
+			auto const lastInputTime = inputTime;
+			inputTime = GetTime();
+			return std::make_pair(lastInputTime, inputTime);
+		}
+	} worldCmdQueue;
+
+	World world;
+	Menu menu;
+
+	void TryFillCmds() {
+		auto const [lastInputTime, inputTime] = worldCmdQueue.NextInputTimeFrame();
+
+		for (auto tic = lastInputTime; tic < inputTime; tic++) {
+			// Fill events
+			sys::pump_events(event_queue);
+
+			// Drain events
+			while (!event_queue.empty()) {
+				auto const ev = event_queue.pop_front();
+
+				if (std::visit(menu.responder, ev)) {
+					continue;
+				}
+				std::visit(world.responder, ev);
+			}
+
+			if (worldCmdQueue.full()) {
+				break;
+			} else {
+				worldCmdQueue.push_back(world.state.BuildCmd());
+			}
+		}
+	}
+
+	void DrainCmds() {
+		while (!worldCmdQueue.empty()) {
+			menu.ticker();
+
+			auto const cmd = worldCmdQueue.pop_front();
+			world.ticker(cmd);
+		}
+	}
+
+	void Simulate() {
+		TryFillCmds();
+		DrainCmds();
+	}
+
+	void Render() {
+		auto const& camera = world.state.camera;
+
+		using fp0      = math::fixed_point< 0, uint32_t>;
+		using trig_fp  = math::fixed_point< 8, uint32_t>;
+		using scale_fp = math::fixed_point<12, uint32_t>;
+		using P_fp     = math::fixed_point< 8, uint16_t>;
+		using dx_fp    = math::fixed_point< 8, uint32_t>;
+
+		auto const M7_D = fp0{128};
+		auto const phi = 0.4;
+		auto const cos_phi = trig_fp{::cos(phi)};
+		auto const sin_phi = trig_fp{::sin(phi)};
+
+		for (int i = 0; i < sys::screenHeight; i++) {
+			auto const lam = scale_fp{scale_fp{80} / fp0{i}};
+			auto const lam_cos_phi = scale_fp{lam * cos_phi};
+			auto const lam_sin_phi = scale_fp{lam * sin_phi};
+
+			affineParams[i].P[0] = P_fp{lam_cos_phi}.to_rep();
+			affineParams[i].P[1] = 0;
+			affineParams[i].P[2] = P_fp{lam_sin_phi}.to_rep();
+			affineParams[i].P[3] = 0;
+
+			affineParams[i].dx[0] = dx_fp
+				{ dx_fp{camera.a_x}
+				- (fp0{120} * dx_fp{lam_cos_phi})
+				+ dx_fp{M7_D * lam_sin_phi}
+			}.to_rep();
+			affineParams[i].dx[1] = dx_fp
+				{ dx_fp{camera.a_y}
+				- (fp0{120} * dx_fp{lam_sin_phi})
+				- dx_fp{M7_D * lam_cos_phi}
+			}.to_rep();
+		}
+
+	#if 0
+		volatile int x = 100000;
+		while (x--);
+	#endif
+	}
+
+	void FlipAffineBuffer() const {
+		sys::VBlankIntrWait();
+
+		for (int i = 0; i < sys::screenHeight; i++) {
+			irq::affineParams[i] = affineParams[i];
+		}
+		irq::affineParams[sys::screenHeight] = affineParams[0];
+	}
+
+	Game()
+		: event_queue{}
+		, worldCmdQueue{}
+		, world{}
+		, menu{}
+	{
+		sys::dispControl = 0x402;
+		sys::dispStat = 0x8;
+
+		auto constexpr charBlockBase = 0;
+		auto constexpr screenBlockBase = 8;
+
+		sys::bg2Control = vram::bg_control
+			{ .priority = 0
+			, .charBlockBase = charBlockBase
+			, .mosaicEnabled = false
+			, .palMode = vram::bg_control::PalMode::Bits8
+			, .screenBlockBase = screenBlockBase
+			, .affineWrapEnabled = false
+			, .mapSize = vram::bg_control::MapSize::Aff64x64
+		};
+
+		sys::bg2Control |= vram::bg_control{ .affineWrapEnabled = true };
+
+		sys::palBanks[1] = res::Red;
+		sys::palBanks[2] = res::Blue;
+		sys::palBanks[3] = res::Green;
+		sys::palBanks[4] = res::Grey;
+
+		sys::charBlocks[0][0] = res::tiles[0];
+		sys::charBlocks[0][1] = res::tiles[1];
+		sys::charBlocks[0][2] = res::tiles[2];
+		sys::charBlocks[0][3] = res::tiles[3];
+		sys::charBlocks[0][4] = res::tiles[4];
+
+		for (uint8_t quadrant = 0; quadrant < 4; quadrant++) {
+			for (uint32_t screenEntryIdx = 0; screenEntryIdx < 0x100; screenEntryIdx++) {
+				sys::screenBlocks[screenBlockBase][(quadrant * 0x100) + screenEntryIdx] =
+					vram::screen_entry{quadrant, quadrant, quadrant, quadrant};
+			}
+		}
+		sys::screenBlocks[screenBlockBase][0] =
+			vram::screen_entry{4, 0, 0, 0};
+
+		irq::install();
+	}
+};
 
 int
 #ifdef _WIN32
@@ -94,109 +365,15 @@ WinMain
 #else
 main
 #endif
-	(int argc, char const* argv[]) {
+(int argc, char const* argv[])
+{
+	Game game{};
 
-	auto bg0 = Bg64x64{};
-
-	bg0.horzOffs = 0;
-	bg0.vertOffs = 0;
-
-	bg0.charBlocks[0][0] = tiles[0];
-	bg0.charBlocks[0][1] = tiles[1];
-	
-	bgPalBanks[0][1] = Rgb15{31,  0,  0};
-	bgPalBanks[1][1] = Rgb15{ 0, 31,  0};
-	bgPalBanks[2][1] = Rgb15{ 0,  0, 31};
-	bgPalBanks[3][1] = Rgb15{16, 16, 16};
-
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < screenBlockHeight * screenBlockWidth; j++) {
-			bg0.screenBlocks[i][j] = ScreenEntry
-				{ .tileId = 0
-				, .horFlip = 0
-				, .verFlip = 0
-				, .palBank = (uint8_t)i
-				};
-		}
-	}
-	
-	auto const screenBlockIdx = Bg64x64::screenBlockIdx(0, 0);
-	auto const screenEntryIdx = Bg64x64::screenEntryIdx(0, 0);
-	bg0.screenBlocks[screenBlockIdx][screenEntryIdx].tileId = 1;
-
-	SDL_Init(SDL_INIT_VIDEO);
-
-	SDL_Event event;
-	SDL_Renderer *renderer;
-	SDL_Window *window;
-
-	SDL_CreateWindowAndRenderer(240, 160, 0, &window, &renderer);
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-	SDL_RenderClear(renderer);
-
-	for (int i= 0; i < 160; i++) {
-		auto const rowPx = bg0.vertOffs + i;
-
-		auto const rowTx     = rowPx / 8;
-		auto const rowTxOffs = rowPx % 8;
-
-		for (int j = 0; j < 240; j++) {
-			auto const colPx = bg0.horzOffs + j;
-
-			auto const colTx     = colPx / 8;
-			auto const colTxOffs = colPx % 8;
-			
-			fprintf(stderr, "row px %lu tx %lu offs %lu, col px %lu tx %lu offs %lu\n", rowPx, rowTx, rowTxOffs, colPx, colTx, colTxOffs);
-
-			auto const screenBlockIdx = Bg64x64::screenBlockIdx(colTx, rowTx);
-			assert(screenBlockIdx < 4);
-			auto const screenEntryIdx = Bg64x64::screenEntryIdx(colTx, rowTx);
-			auto const screenEntry = bg0.screenBlocks[screenBlockIdx][screenEntryIdx];
-			assert(screenEntryIdx < screenEntries);
-			assert(screenEntry.tileId <= 1);
-			assert(screenEntry.palBank < 4);
-
-			auto const charBlockIdx = Bg64x64::charBlockIdx(screenEntry.tileId);
-			assert(charBlockIdx == 0);
-			auto const charEntryIdx = Bg64x64::charEntryIdx(screenEntry.tileId);
-			assert(charEntryIdx <= 1);
-			auto const tile = bg0.charBlocks[charBlockIdx][charEntryIdx];
-			fprintf(stderr, "charBlockIdx %lu charEntryIdx %lu\n", charBlockIdx, charEntryIdx);
-
-			auto const palBank = bgPalBanks[screenEntry.palBank];
-
-			auto const wordIdx = (rowTxOffs * bpp) / 8;
-			assert(wordIdx < bpp);
-
-			static_assert(bpp == 8);
-			auto const word = tile[wordIdx];
-			auto const nibIdx = colTxOffs;
-			auto const colorIdx = (word >> (nibIdx * 4)) & 0xf;
-			fprintf(stderr, "word %08x nibIdx %lu, colorIdx %lu\n", word, nibIdx, colorIdx);
-			assert(colorIdx <= 1);
-			fprintf(stderr, "wordIdx %lu word %08x colorIdx %lu\n", wordIdx, word, colorIdx);
-
-			if (colorIdx > 0) {
-				auto const color = palBank[colorIdx];
-
-				fprintf(stderr, "SDL_SetRenderDrawColor %04x - %d, %d, %d\n", *(uint16_t*)&color, 8 * int{color.r}, 8 * int{color.g}, 8 * int{color.b});
-				SDL_SetRenderDrawColor(renderer, 8 * color.r, 8 * color.g, 8 * color.b, 0xff);
-				SDL_RenderDrawPoint(renderer, colPx, rowPx);
-			}
-
-			fprintf(stderr, "\n");
-		}
-	}
-
-	SDL_RenderPresent(renderer);
 	while (true) {
-		if (SDL_PollEvent(&event) && event.type == SDL_QUIT) {
-			break;
-		}
+		game.Simulate();
+		game.Render();
+		game.FlipAffineBuffer();
 	}
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
-	SDL_Quit();
 
 	return 0;
 }

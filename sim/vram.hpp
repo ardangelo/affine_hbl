@@ -7,10 +7,12 @@ namespace vram
 
 template <typename Base, size_t address_>
 struct memmap {
-	static inline auto base = reinterpret_cast<typename Base::element volatile*>(address_);
+	static inline auto begin() {
+		return reinterpret_cast<typename Base::element volatile*>(address_);
+	}
 
 	constexpr auto& operator[] (size_t i) const {
-		return base[i];
+		return begin()[i];
 	}
 };
 
@@ -134,7 +136,7 @@ static_assert(sizeof(screen_entry) == 4);
 
 struct screen_blocks {
 	using element = uint32_t[0x200];
-	using storage = element[0x20];
+	using storage = std::array<element, 0x20>;
 };
 
 struct char_entry {
@@ -159,7 +161,7 @@ public:
 
 struct char_blocks {
 	using element = char_entry[0x100];
-	using storage = element[0x4];
+	using storage = std::array<element, 0x4>;
 };
 
 
@@ -167,17 +169,22 @@ struct affine {
 
 struct P_ {
 	using element = uint16_t;
-	using storage = element[4];
+	using storage = std::array<element, 4>;
 };
 
 struct dx_ {
 	using element = uint32_t;
-	using storage = element[2];
+	using storage = std::array<element, 2>;
 };
 
 struct param_ {
 	P_::storage  P;
 	dx_::storage dx;
+
+	inline auto begin() const {
+		return P.begin();
+	}
+
 } __attribute__((packed));
 static_assert(sizeof(param_) == 16);
 
@@ -201,7 +208,7 @@ struct rgb15 {
 
 struct pal_banks {
 	using element = uint16_t;
-	using storage = element[0x100];
+	using storage = std::array<element, 0x100>;
 };
 
 struct interrupt_mask

@@ -1,5 +1,7 @@
 #pragma once
 
+// #include <tonc.h>
+
 #include "register.hpp"
 #include "vram.hpp"
 #include "event.hpp"
@@ -54,18 +56,3 @@ static inline constexpr void pump_events(event::queue_type& queue) {
 }
 
 }; // struct GBA
-
-struct SDL
-{
-
-static inline auto dispCnt = val::read_write<uint16_t>{};
-
-static inline auto bg0Cnt      = val::read_write<uint16_t>{};
-static inline auto bg0HorzOffs = val::write_only<uint32_t>{};
-
-static inline vram::pal_banks::storage palBanks = {};
-
-static inline vram::screen_blocks::storage screenBlocks = {};
-static inline vram::char_blocks::storage   charBlocks = {};
-
-}; // struct SDL
