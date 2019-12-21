@@ -14,7 +14,7 @@ struct SDL
 static inline constexpr auto screenWidth  = 240;
 static inline constexpr auto screenHeight = 160;
 
-struct device
+struct Display
 {
 	using unique_SDL_Renderer = std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)>;
 	unique_SDL_Renderer renderer{nullptr, SDL_DestroyRenderer};
@@ -22,7 +22,7 @@ struct device
 	using unique_SDL_Window = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
 	unique_SDL_Window window{nullptr, SDL_DestroyWindow};
 
-	device()
+	Display()
 	{
 		SDL_Init(SDL_INIT_VIDEO);
 
@@ -38,54 +38,40 @@ struct device
 		SDL_RenderClear(renderer.get());
 	}
 
-	~device()
+	~Display()
 	{
 		SDL_Quit();
 	}
 };
+static inline auto display = Display{};
 
-template <typename Applier>
-struct io_reg
+struct DispControl : public io_val<DispControl, uint16_t>
 {
-	uint16_t value;
-
-	auto& operator= (uint16_t const raw) {
-		value = raw;
-		Applier::apply(value);
-		return *this;
-	}
-
-	auto& operator|= (uint16_t const raw) {
-		value |= raw;
-		Applier::apply(value);
-		return *this;
-	}
-};
-
-struct DispControl : public io_reg<DispControl>
-{
-	using io_reg<DispControl>::operator=;
-	using io_reg<DispControl>::operator|=;
+	using io_base = io_val<DispControl, uint16_t>;
+	using io_base::operator=;
+	using io_base::operator|=;
 	static inline void apply(uint16_t const raw) {
 
 	}
 };
 static inline auto dispControl = DispControl{0};
 
-struct DispStat : public io_reg<DispStat>
+struct DispStat : public io_val<DispStat, uint16_t>
 {
-	using io_reg<DispStat>::operator=;
-	using io_reg<DispStat>::operator|=;
+	using io_base = io_val<DispStat, uint16_t>;
+	using io_base::operator=;
+	using io_base::operator|=;
 	static inline void apply(uint16_t const raw) {
 
 	}
 };
 static inline auto dispStat = DispStat{0};
 
-struct BgControl : public io_reg<BgControl>
+struct BgControl : public io_val<BgControl, uint16_t>
 {
-	using io_reg<BgControl>::operator=;
-	using io_reg<BgControl>::operator|=;
+	using io_base = io_val<BgControl, uint16_t>;
+	using io_base::operator=;
+	using io_base::operator|=;
 	static inline void apply(uint16_t const raw) {
 
 	}
@@ -96,15 +82,75 @@ static constexpr auto bg2aff = vram::affine::param::storage{};
 static constexpr auto bg2P   = vram::affine::P::storage{};
 static constexpr auto bg2dx  = vram::affine::dx::storage{};
 
-static inline constexpr auto dma3Source  = reg::write_only<void const*, 0x040000D4>{};
-static inline constexpr auto dma3Dest    = reg::write_only<void*, 0x040000D8>{};
-static inline constexpr auto dma3Control = reg::write_only<uint32_t, 0x040000DC>{};
+struct DMA
+{
+	struct Source : public io_val<Source, void const*> {
+		using io_base = io_val<Source, void const*>;
+		using io_base::operator=;
+		static inline void apply(void const* src) {}
+	};
 
-static inline constexpr auto biosIrqsRaised    = reg::read_write<uint16_t, 0x03fffff8>{};
-static inline constexpr auto irqServiceRoutine = reg::write_only<void(*)(void), 0x03fffffc>{};
-static inline constexpr auto irqsEnabled       = reg::read_write<uint16_t, 0x04000200>{};
-static inline constexpr auto irqsRaised        = reg::read_write<uint16_t, 0x04000202>{};
-static inline constexpr auto irqsEnabledFlag   = reg::read_write<uint16_t, 0x04000208>{};
+	struct Dest : public io_val<Dest, void*> {
+		using io_base = io_val<Dest, void*>;
+		using io_base::operator=;
+		static inline void apply(void* dest) {}
+	};
+
+	struct Control : public io_val<Control, vram::dma_control> {
+		using io_base = io_val<Control, vram::dma_control>;
+		using io_base::operator=;
+		using io_base::operator|=;
+		static inline void apply(vram::dma_control const raw) {}
+	};
+};
+
+static inline auto dma3Source = DMA::Source{nullptr};
+static inline auto dma3Dest   = DMA::Dest{nullptr};
+static inline auto dma3Control= DMA::Control{};
+
+struct IRQ
+{
+	struct BiosIrqsRaised : public io_val<BiosIrqsRaised, vram::interrupt_mask> {
+		using io_base = io_val<BiosIrqsRaised, vram::interrupt_mask>;
+		using io_base::operator=;
+		using io_base::operator|=;
+		static inline void apply(vram::interrupt_mask const mask) {}
+	};
+
+	struct IrqServiceRoutine : public io_val<IrqServiceRoutine, void(*)(void)> {
+		using Func = void(*)(void);
+		using io_base = io_val<IrqServiceRoutine, Func>;
+		using io_base::operator=;
+		static inline void apply(Func func) {}
+	};
+
+	struct IrqsEnabled : public io_val<IrqsEnabled, vram::interrupt_mask> {
+		using io_base = io_val<IrqsEnabled, vram::interrupt_mask>;
+		using io_base::operator=;
+		using io_base::operator|=;
+		static inline void apply(vram::interrupt_mask const mask) {}
+	};
+
+	struct IrqsRaised : public io_val<IrqsRaised, vram::interrupt_mask> {
+		using io_base = io_val<IrqsRaised, vram::interrupt_mask>;
+		using io_base::operator=;
+		using io_base::operator|=;
+		static inline void apply(vram::interrupt_mask const mask) {}
+	};
+
+	struct IrqsEnabledFlag : public io_val<IrqsEnabledFlag, uint16_t> {
+		using io_base = io_val<IrqsEnabledFlag, uint16_t>;
+		using io_base::operator=;
+		using io_base::operator|=;
+		static inline void apply(uint16_t const flag) {}
+	};
+};
+
+static inline auto biosIrqsRaised    = IRQ::BiosIrqsRaised{0};
+static inline auto irqServiceRoutine = IRQ::IrqServiceRoutine{nullptr};
+static inline auto irqsEnabled       = IRQ::IrqsEnabled{0};
+static inline auto irqsRaised        = IRQ::IrqsRaised{0};
+static inline auto irqsEnabledFlag   = IRQ::IrqsEnabledFlag{false};
 
 static inline auto palBanks = vram::pal_banks::storage{};
 

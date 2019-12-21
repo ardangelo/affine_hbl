@@ -229,6 +229,24 @@ struct interrupt_mask
 	uint16_t gamePak : 1;
 	uint16_t _ : 2;
 
+	constexpr interrupt_mask(uint16_t const mask)
+		: vblank{(uint16_t)((mask >>  0) & 0x1)}
+		, hblank{(uint16_t)((mask >>  1) & 0x1)}
+		, vcount{(uint16_t)((mask >>  2) & 0x1)}
+		, timer0{(uint16_t)((mask >>  3) & 0x1)}
+		, timer1{(uint16_t)((mask >>  4) & 0x1)}
+		, timer2{(uint16_t)((mask >>  5) & 0x1)}
+		, timer3{(uint16_t)((mask >>  6) & 0x1)}
+		, serialComm{(uint16_t)((mask >>  7) & 0x1)}
+		, dma0{(uint16_t)((mask >>  8) & 0x1)}
+		, dma1{(uint16_t)((mask >>  9) & 0x1)}
+		, dma2{(uint16_t)((mask >> 10) & 0x1)}
+		, dma3{(uint16_t)((mask >> 11) & 0x1)}
+		, keypad{(uint16_t)((mask >> 12) & 0x1)}
+		, gamePak{(uint16_t)((mask >> 13) & 0x1)}
+		, _{}
+	{}
+
 	constexpr operator uint16_t() const {
 		return (vblank << 0)
 			 | (hblank << 1)
@@ -242,7 +260,8 @@ struct interrupt_mask
 			 | (dma1 <<  9)
 			 | (dma2 << 10)
 			 | (dma3 << 11)
-			 | (gamePak << 12);
+			 | (keypad << 12)
+			 | (gamePak << 13);
 	}
 } __attribute__((packed));
 

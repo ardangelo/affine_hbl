@@ -18,6 +18,7 @@ namespace irq
 	static volatile auto vblankCount = uint32_t{0};
 
 	static vram::affine::param affineParams[161];
+	static constexpr auto stopDmaControl = vram::dma_control{};
 	static constexpr auto affineHblankDmaControl = vram::dma_control
 		{ .count = 4
 		, .destAdjust    = vram::dma_control::Adjust::Reload
@@ -36,7 +37,7 @@ namespace irq
 		if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
 			vblankCount++;
 
-			sys::dma3Control = 0;
+			sys::dma3Control = stopDmaControl;
 			sys::dma3Source  = (const void*)&affineParams[1];
 			sys::dma3Dest    = (void*)sys::bg2aff.begin();
 			sys::dma3Control = affineHblankDmaControl;
