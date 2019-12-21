@@ -158,6 +158,16 @@ static inline auto screenBlocks = vram::screen_blocks::storage{};
 static inline auto charBlocks   = vram::char_blocks::storage{};
 
 static inline void VBlankIntrWait() {
+	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
+	if (irqsEnabledFlag.Get()) {
+		if (irqsEnabled.Get() & vblankInterruptMask) {
+			irqsRaised.Get().vblank = 1;
+			irqServiceRoutine.Get()();
+			biosIrqsRaised.Get().vblank = 0;
+			irqsRaised.Get().vblank = 0;
+		}
+	}
+
 	SDL_RenderPresent(sdlState.renderer.get());
 }
 

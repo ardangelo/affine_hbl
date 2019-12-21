@@ -7,9 +7,13 @@
 #include "system/GBA.hpp"
 using sys = GBA;
 
+#define dbgprintf(...)
+
 #elif defined(__sdl)
 #include "system/SDL.hpp"
 using sys = SDL;
+
+#define dbgprintf fprintf
 
 #endif
 
@@ -371,6 +375,8 @@ main
 	Game game{};
 
 	while (true) {
+		dbgprintf(stdout, "%u\n", game.GetTime());
+
 		game.Simulate();
 		game.Render();
 		game.FlipAffineBuffer();

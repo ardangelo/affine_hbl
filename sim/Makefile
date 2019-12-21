@@ -28,7 +28,7 @@ PACKAGES = /mingw64
 
 SDL_CC = g++
 SDL_CXXFLAGS = $(shell $(PACKAGES)/bin/sdl2-config --cflags) -D__sdl
-SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs)
+SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs) -mconsole
 
 all: $(ROMNAME).gba $(ROMNAME).exe
 
