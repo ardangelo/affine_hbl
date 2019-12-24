@@ -50,6 +50,19 @@ struct bg_control
 	};
 	uint16_t mapSize : 2;
 
+	static constexpr bg_control from_raw(uint16_t const mask)
+	{
+		return bg_control
+			{ .priority{(uint16_t)((mask >>          0) & 0x3)}
+			, .charBlockBase{(uint16_t)((mask >>     2) & 0x3)}
+			, .mosaicEnabled{(uint16_t)((mask >>     6) & 0x1)}
+			, .palMode{(uint16_t)((mask >> 7) & 0x1)}
+			, .screenBlockBase{(uint16_t)((mask >>   8) & 0x1f)}
+			, .affineWrapEnabled{(uint16_t)((mask >> 13) & 0x1)}
+			, .mapSize{(uint16_t)((mask >> 14) & 0x3)}
+		};
+	}
+
 	constexpr operator uint16_t() const {
 		return (priority          <<  0)
 			 | (charBlockBase     <<  2)
@@ -58,6 +71,16 @@ struct bg_control
 			 | (screenBlockBase   <<  8)
 			 | (affineWrapEnabled <<  13)
 			 | ((uint16_t)mapSize <<  14);
+	}
+
+	auto& operator= (uint16_t const raw) {
+		*this = from_raw(raw);
+		return *this;
+	}
+
+	auto& operator|= (uint16_t const raw) {
+		*this = *this | from_raw(raw);
+		return *this;
 	}
 } __attribute__((packed));
 static_assert(sizeof(bg_control) == sizeof(uint16_t));
@@ -185,7 +208,7 @@ struct param_ {
 		return P.begin();
 	}
 
-} __attribute__((packed));
+};
 static_assert(sizeof(param_) == 16);
 
 struct param : public param_ {
@@ -206,7 +229,7 @@ struct rgb15 {
 	}
 };
 
-struct pal_banks {
+struct pal_bank {
 	using element = uint16_t;
 	using storage = std::array<element, 0x100>;
 };
@@ -229,23 +252,25 @@ struct interrupt_mask
 	uint16_t gamePak : 1;
 	uint16_t _ : 2;
 
-	constexpr interrupt_mask(uint16_t const mask)
-		: vblank{(uint16_t)((mask >>  0) & 0x1)}
-		, hblank{(uint16_t)((mask >>  1) & 0x1)}
-		, vcount{(uint16_t)((mask >>  2) & 0x1)}
-		, timer0{(uint16_t)((mask >>  3) & 0x1)}
-		, timer1{(uint16_t)((mask >>  4) & 0x1)}
-		, timer2{(uint16_t)((mask >>  5) & 0x1)}
-		, timer3{(uint16_t)((mask >>  6) & 0x1)}
-		, serialComm{(uint16_t)((mask >>  7) & 0x1)}
-		, dma0{(uint16_t)((mask >>  8) & 0x1)}
-		, dma1{(uint16_t)((mask >>  9) & 0x1)}
-		, dma2{(uint16_t)((mask >> 10) & 0x1)}
-		, dma3{(uint16_t)((mask >> 11) & 0x1)}
-		, keypad{(uint16_t)((mask >> 12) & 0x1)}
-		, gamePak{(uint16_t)((mask >> 13) & 0x1)}
-		, _{}
-	{}
+	static constexpr interrupt_mask from_raw(uint16_t const mask)
+	{
+		return interrupt_mask
+			{ .vblank{(uint16_t)((mask >>  0) & 0x1)}
+			, .hblank{(uint16_t)((mask >>  1) & 0x1)}
+			, .vcount{(uint16_t)((mask >>  2) & 0x1)}
+			, .timer0{(uint16_t)((mask >>  3) & 0x1)}
+			, .timer1{(uint16_t)((mask >>  4) & 0x1)}
+			, .timer2{(uint16_t)((mask >>  5) & 0x1)}
+			, .timer3{(uint16_t)((mask >>  6) & 0x1)}
+			, .serialComm{(uint16_t)((mask >>  7) & 0x1)}
+			, .dma0{(uint16_t)((mask >>  8) & 0x1)}
+			, .dma1{(uint16_t)((mask >>  9) & 0x1)}
+			, .dma2{(uint16_t)((mask >> 10) & 0x1)}
+			, .dma3{(uint16_t)((mask >> 11) & 0x1)}
+			, .keypad{(uint16_t)((mask >> 12) & 0x1)}
+			, .gamePak{(uint16_t)((mask >> 13) & 0x1)}
+		};
+	}
 
 	constexpr operator uint16_t() const {
 		return (vblank << 0)
@@ -262,6 +287,11 @@ struct interrupt_mask
 			 | (dma3 << 11)
 			 | (keypad << 12)
 			 | (gamePak << 13);
+	}
+
+	auto& operator= (uint16_t const raw) {
+		*this = from_raw(raw);
+		return *this;
 	}
 } __attribute__((packed));
 

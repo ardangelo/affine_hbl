@@ -36,7 +36,7 @@ namespace irq
 
 	void isr()
 	{
-		auto const irqsRaised = sys::irqsRaised.Get();
+		auto const irqsRaised = uint16_t{sys::irqsRaised};
 
 		if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
 			vblankCount++;
@@ -340,10 +340,10 @@ struct Game {
 
 		sys::bg2Control |= vram::bg_control{ .affineWrapEnabled = true };
 
-		sys::palBanks[1] = res::Red;
-		sys::palBanks[2] = res::Blue;
-		sys::palBanks[3] = res::Green;
-		sys::palBanks[4] = res::Grey;
+		sys::palBank[1] = res::Red;
+		sys::palBank[2] = res::Blue;
+		sys::palBank[3] = res::Green;
+		sys::palBank[4] = res::Grey;
 
 		sys::charBlocks[0][0] = res::tiles[0];
 		sys::charBlocks[0][1] = res::tiles[1];
@@ -375,7 +375,8 @@ main
 	Game game{};
 
 	while (true) {
-		dbgprintf(stdout, "%u\n", game.GetTime());
+		dbgprintf(stdout, "%u: 0x%x 0x%x 0x%x 0x%x\n", game.GetTime(),
+			sys::bg2aff.P[0], sys::bg2aff.P[1], sys::bg2aff.P[2], sys::bg2aff.P[3]);
 
 		game.Simulate();
 		game.Render();

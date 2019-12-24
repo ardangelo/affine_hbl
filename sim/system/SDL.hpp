@@ -45,127 +45,150 @@ struct SDLState
 };
 static inline auto sdlState = SDLState{};
 
-struct DispControl : public io_val<DispControl, uint16_t>
-{
-	using io_base = io_val<DispControl, uint16_t>;
-	using io_base::operator=;
-	using io_base::operator|=;
-	static inline void apply(uint16_t const raw) {
+static inline auto dispControl = uint16_t{0};
+static inline auto dispStat = uint16_t{};
 
-	}
-};
-static inline auto dispControl = DispControl{0};
+static inline auto bg2Control = vram::bg_control{};
 
-struct DispStat : public io_val<DispStat, uint16_t>
-{
-	using io_base = io_val<DispStat, uint16_t>;
-	using io_base::operator=;
-	using io_base::operator|=;
-	static inline void apply(uint16_t const raw) {
-
-	}
-};
-static inline auto dispStat = DispStat{0};
-
-struct BgControl : public io_val<BgControl, uint16_t>
-{
-	using io_base = io_val<BgControl, uint16_t>;
-	using io_base::operator=;
-	using io_base::operator|=;
-	static inline void apply(uint16_t const raw) {
-
-	}
-};
-static inline auto bg2Control = BgControl{0};
-
-static constexpr auto bg2aff = vram::affine::param::storage{};
-static constexpr auto bg2P   = vram::affine::P::storage{};
-static constexpr auto bg2dx  = vram::affine::dx::storage{};
+static inline auto  bg2aff = vram::affine::param::storage{};
+static inline auto& bg2P   = bg2aff.P;
+static inline auto& bg2dx  = bg2aff.dx;
 
 struct DMA
 {
-	struct Source : public io_val<Source, void const*> {
-		using io_base = io_val<Source, void const*>;
-		using io_base::operator=;
-		static inline void apply(void const* src) {}
-	};
+	using Source = void const*;
+	Source source;
 
-	struct Dest : public io_val<Dest, void*> {
-		using io_base = io_val<Dest, void*>;
-		using io_base::operator=;
-		static inline void apply(void* dest) {}
-	};
+	using Dest = void*;
+	Dest dest;
 
 	struct Control : public io_val<Control, vram::dma_control> {
 		using io_base = io_val<Control, vram::dma_control>;
 		using io_base::operator=;
 		using io_base::operator|=;
 		static inline void apply(vram::dma_control const raw) {}
+	} control;
+
+	void runTransfer() {
+		auto const originalDest = dest;
+
+		auto const adjustPointer = [](auto const adj, auto const pointer, auto const chunkSize) {
+			using Ad = vram::dma_control::Adjust;
+
+			switch ((Ad)adj) {
+			case Ad::Increment: return pointer + chunkSize;
+			case Ad::Decrement: return pointer - chunkSize;
+			case Ad::None:      return pointer + 0;
+			case Ad::Reload:    return pointer + chunkSize; // Not valid for source
+			default: std::terminate();
+			}
+		};
+
+		for (uint32_t i = 0; i < control.Get().count; i++) {
+			auto const chunkSize = (control.Get().chunkSize == vram::dma_control::ChunkSize::Bits16)
+				? 2
+				: 4;
+
+			for (int i = 0; i < chunkSize; i++) {
+				((char*)dest)[i] = ((char const*)source)[i];
+			}
+
+			dest   = adjustPointer(control.Get().destAdjust,   (char*)dest,   chunkSize);
+			source = adjustPointer(control.Get().sourceAdjust, (char const*)source, chunkSize);
+		}
+
+		if (control.Get().destAdjust == vram::dma_control::Adjust::Reload) {
+			dest = originalDest;
+		}
+
+		// TODO: DMA IRQ
+	}
+
+	static constexpr auto hblankEnabledDmaMask = vram::dma_control
+		{ .timing = vram::dma_control::Timing::Hblank
+		, .enabled = true
 	};
+	void TryRunHblank() {
+		if (control.Get() & hblankEnabledDmaMask) {
+			runTransfer();
+		}
+
+		// TODO: determine if this is the right blank repeat behavior
+		if (control.Get().repeatAtBlank == false) {
+			control.Get().enabled = false;
+		}
+	}
 };
 
-static inline auto dma3Source = DMA::Source{nullptr};
-static inline auto dma3Dest   = DMA::Dest{nullptr};
-static inline auto dma3Control= DMA::Control{};
+static inline auto dma3 = DMA{};
+static inline auto& dma3Dest    = dma3.dest;
+static inline auto& dma3Source  = dma3.source;
+static inline auto& dma3Control = dma3.control;
 
-struct IRQ
-{
-	struct BiosIrqsRaised : public io_val<BiosIrqsRaised, vram::interrupt_mask> {
-		using io_base = io_val<BiosIrqsRaised, vram::interrupt_mask>;
-		using io_base::operator=;
-		using io_base::operator|=;
-		static inline void apply(vram::interrupt_mask const mask) {}
-	};
+static inline auto biosIrqsRaised    = vram::interrupt_mask{};
+static inline auto irqServiceRoutine = (void(*)(void)){nullptr};
+static inline auto irqsEnabled       = vram::interrupt_mask{};
+static inline auto irqsRaised        = vram::interrupt_mask{};
+static inline auto irqsEnabledFlag   = uint16_t{};
 
-	struct IrqServiceRoutine : public io_val<IrqServiceRoutine, void(*)(void)> {
-		using Func = void(*)(void);
-		using io_base = io_val<IrqServiceRoutine, Func>;
-		using io_base::operator=;
-		static inline void apply(Func func) {}
-	};
-
-	struct IrqsEnabled : public io_val<IrqsEnabled, vram::interrupt_mask> {
-		using io_base = io_val<IrqsEnabled, vram::interrupt_mask>;
-		using io_base::operator=;
-		using io_base::operator|=;
-		static inline void apply(vram::interrupt_mask const mask) {}
-	};
-
-	struct IrqsRaised : public io_val<IrqsRaised, vram::interrupt_mask> {
-		using io_base = io_val<IrqsRaised, vram::interrupt_mask>;
-		using io_base::operator=;
-		using io_base::operator|=;
-		static inline void apply(vram::interrupt_mask const mask) {}
-	};
-
-	struct IrqsEnabledFlag : public io_val<IrqsEnabledFlag, uint16_t> {
-		using io_base = io_val<IrqsEnabledFlag, uint16_t>;
-		using io_base::operator=;
-		using io_base::operator|=;
-		static inline void apply(uint16_t const flag) {}
-	};
-};
-
-static inline auto biosIrqsRaised    = IRQ::BiosIrqsRaised{0};
-static inline auto irqServiceRoutine = IRQ::IrqServiceRoutine{nullptr};
-static inline auto irqsEnabled       = IRQ::IrqsEnabled{0};
-static inline auto irqsRaised        = IRQ::IrqsRaised{0};
-static inline auto irqsEnabledFlag   = IRQ::IrqsEnabledFlag{false};
-
-static inline auto palBanks = vram::pal_banks::storage{};
+static inline auto palBank = vram::pal_bank::storage{};
 
 static inline auto screenBlocks = vram::screen_blocks::storage{};
 static inline auto charBlocks   = vram::char_blocks::storage{};
 
 static inline void VBlankIntrWait() {
 	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
-	if (irqsEnabledFlag.Get()) {
-		if (irqsEnabled.Get() & vblankInterruptMask) {
-			irqsRaised.Get().vblank = 1;
-			irqServiceRoutine.Get()();
-			biosIrqsRaised.Get().vblank = 0;
-			irqsRaised.Get().vblank = 0;
+	if (irqsEnabledFlag) {
+		if (irqsEnabled & vblankInterruptMask) {
+			irqsRaised.vblank = 1;
+			irqServiceRoutine();
+			biosIrqsRaised.vblank = 0;
+			irqsRaised.vblank = 0;
 		}
+	}
+
+	auto const sbb = bg2Control.screenBlockBase;
+	auto const cbb = bg2Control.charBlockBase;
+
+	auto const getColorIdx = [&](int rowPx, int colPx) {
+		auto const rowTx     = rowPx / 8;
+		auto const rowTxOffs = rowPx % 8;
+
+		auto const colTx     = colPx / 8;
+		auto const colTxOffs = colPx % 8;
+
+		auto const tileIdx = (rowTx * 8) + colTx;
+		auto const screenBlockIdx = tileIdx / 0x200;
+		auto const screenEntryIdx = tileIdx % 0x200;
+		auto const screenEntry = screenBlocks[sbb][screenEntryIdx];
+
+		auto const charBlock = charBlocks[cbb][screenEntry];
+
+		auto const px = (rowTxOffs * 8) + colTxOffs;
+		auto const colorIdx = (charBlock.buf[px / 4] >> (32 - (8 * ((px % 4) + 1)))) & 0xff;
+
+		return colorIdx;
+	};
+
+	for (int i = 0; i < screenHeight; i++) {
+		auto const rowPx = i;
+
+		for (int j = 0; j < screenWidth; j++) {
+			auto const colPx = j;
+
+			auto const colorIdx = getColorIdx(rowPx, colPx);
+			if (colorIdx > 0) {
+				auto const color = palBank[colorIdx];
+				auto const r = (color >>  0) & 0x1f;
+				auto const g = (color >>  5) & 0x1f;
+				auto const b = (color >> 10) & 0x1f;
+
+				SDL_SetRenderDrawColor(sdlState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
+				SDL_RenderDrawPoint(sdlState.renderer.get(), j, i);
+			}
+		}
+
+		dma3.TryRunHblank();
 	}
 
 	SDL_RenderPresent(sdlState.renderer.get());

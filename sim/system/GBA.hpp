@@ -35,7 +35,7 @@ static inline constexpr auto irqsEnabled       = reg::read_write<uint16_t, 0x040
 static inline constexpr auto irqsRaised        = reg::read_write<uint16_t, 0x04000202>{};
 static inline constexpr auto irqsEnabledFlag   = reg::read_write<uint16_t, 0x04000208>{};
 
-static inline constexpr auto palBanks = vram::memmap<vram::pal_banks, 0x05000000>{};
+static inline constexpr auto palBank = vram::memmap<vram::pal_bank, 0x05000000>{};
 
 static inline constexpr auto screenBlocks = vram::memmap<vram::screen_blocks, 0x06000000>{};
 static inline constexpr auto charBlocks   = vram::memmap<vram::char_blocks,   0x06000000>{};

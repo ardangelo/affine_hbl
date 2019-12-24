@@ -85,14 +85,16 @@ struct io_val
 {
 	Value value;
 
-	auto& operator= (Value const raw) {
+	template <typename T>
+	auto& operator= (T const raw) {
 		value = raw;
 		Applier::apply(value);
 		return *this;
 	}
 
-	auto& operator|= (Value const raw) {
-		value |= raw;
+	template <typename T>
+	auto& operator|= (T const raw) {
+		value = value | raw;
 		Applier::apply(value);
 		return *this;
 	}
