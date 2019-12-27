@@ -64,6 +64,4 @@ namespace event {
 
 	using type = std::variant<Key>;
 	using queue_type = circular_queue<type, 16>;
-
-	queue_type queue;
 };

@@ -32,7 +32,7 @@ SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs) -mconsole
 
 all: $(ROMNAME).gba $(ROMNAME).exe
 
-HEADERS = register.hpp vram.hpp resources.hpp
+HEADERS = register.hpp vram.hpp resources.hpp event.hpp
 GBA_HEADERS = $(HEADERS) system/GBA.hpp
 SDL_HEADERS = $(HEADERS) system/SDL.hpp
 
@@ -54,10 +54,13 @@ $(ROMNAME).gba : $(ROMNAME).elf
 
 # SDL targets
 
+system.sdl.o: system/SDL.cpp $(SDL_HEADERS)
+	$(SDL_CC) $(CXXFLAGS) $(SDL_CXXFLAGS) -c $< -o $@
+
 main.sdl.o: main.cpp $(SDL_HEADERS)
 	$(SDL_CC) $(CXXFLAGS) $(SDL_CXXFLAGS) -c $< -o $@
 
-SDL_OBJS = main.sdl.o
+SDL_OBJS = main.sdl.o system.sdl.o
 
 $(ROMNAME).exe: $(SDL_OBJS)
 	$(SDL_CC) $(SDL_OBJS) $(LDFLAGS) $(SDL_LDFLAGS) -o $(ROMNAME).exe
