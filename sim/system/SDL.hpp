@@ -147,25 +147,41 @@ static inline void VBlankIntrWait() {
 		}
 	}
 
+	auto const getMapHeight = [](uint16_t dispControl, vram::bg_control::MapSize const mapSize) {
+		return 64;
+	};
+
+	auto const getMapWidth = [](uint16_t dispControl, vram::bg_control::MapSize const mapSize) {
+		return 64;
+	};
+
 	auto const sbb = bg2Control.screenBlockBase;
 	auto const cbb = bg2Control.charBlockBase;
 
-	auto const getColorIdx = [&](int rowPx, int colPx) {
+	auto const getColorIdx = [&](int rowPxScreen, int colPxScreen) {
+		auto const mapWidth = getMapWidth(dispControl, (vram::bg_control::MapSize)bg2Control.mapSize);
+		auto const mapHeight = getMapHeight(dispControl, (vram::bg_control::MapSize)bg2Control.mapSize);
+
+		auto const mod = [](auto a, auto b) {
+			auto const c = a % b; return (c < 0) ? c + b : c;
+		};
+
+		auto const rowPx = mod(rowPxScreen, 8 * mapHeight);
+		auto const colPx = mod(colPxScreen, 8 * mapWidth);
+
 		auto const rowTx     = rowPx / 8;
 		auto const rowTxOffs = rowPx % 8;
 
 		auto const colTx     = colPx / 8;
 		auto const colTxOffs = colPx % 8;
 
-		auto const tileIdx = (rowTx * 8) + colTx;
-		auto const screenBlockIdx = tileIdx / 0x200;
-		auto const screenEntryIdx = tileIdx % 0x200;
-		auto const screenEntry = screenBlocks[sbb][screenEntryIdx];
+		auto const screenEntryIdx = (rowTx * mapWidth) + colTx;
+		auto const screenEntry = ((uint8_t*)&screenBlocks[sbb])[screenEntryIdx];
 
 		auto const charBlock = charBlocks[cbb][screenEntry];
 
 		auto const px = (rowTxOffs * 8) + colTxOffs;
-		auto const colorIdx = (charBlock.buf[px / 4] >> (32 - (8 * ((px % 4) + 1)))) & 0xff;
+		auto const colorIdx = ((uint8_t*)charBlock.buf)[px];
 
 		return colorIdx;
 	};
@@ -174,7 +190,7 @@ static inline void VBlankIntrWait() {
 		auto const rowPx = i;
 
 		for (int j = 0; j < screenWidth; j++) {
-			auto const colPx = j;
+			auto const colPx = j - 176;
 
 			auto const colorIdx = getColorIdx(rowPx, colPx);
 			if (colorIdx > 0) {
