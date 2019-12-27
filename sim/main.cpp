@@ -375,8 +375,7 @@ main
 	Game game{};
 
 	while (true) {
-		dbgprintf(stdout, "%u: 0x%x 0x%x 0x%x 0x%x\n", game.GetTime(),
-			sys::bg2aff.P[0], sys::bg2aff.P[1], sys::bg2aff.P[2], sys::bg2aff.P[3]);
+		dbgprintf(stdout, "%u\n", game.GetTime());
 
 		game.Simulate();
 		game.Render();

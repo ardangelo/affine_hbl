@@ -158,7 +158,17 @@ static inline void VBlankIntrWait() {
 	auto const sbb = bg2Control.screenBlockBase;
 	auto const cbb = bg2Control.charBlockBase;
 
-	auto const getColorIdx = [&](int rowPxScreen, int colPxScreen) {
+	auto const getColorIdx = [&](int colPxScreen, int rowPxScreen) {
+		auto const applyAffineTxX = [](auto const& P, auto const& dx, int h, int colPx, int rowPx) {
+			auto const colPxP = (P[0] * colPx + P[1] * (rowPx - 0) + dx[0]) >> 8;
+			return colPxP;
+		};
+		auto const applyAffineTxY = [](auto const& P, auto const& dx, int h, int colPx, int rowPx) {
+			// TODO: determine if the scanline offset should be performed implicitly in the simulated hblank interrupt
+			auto const rowPxP = (P[2] * colPx + P[3] * (rowPx - h) + dx[1]) >> 8;
+			return rowPxP;
+		};
+
 		auto const mapWidth = getMapWidth(dispControl, (vram::bg_control::MapSize)bg2Control.mapSize);
 		auto const mapHeight = getMapHeight(dispControl, (vram::bg_control::MapSize)bg2Control.mapSize);
 
@@ -166,42 +176,45 @@ static inline void VBlankIntrWait() {
 			auto const c = a % b; return (c < 0) ? c + b : c;
 		};
 
-		auto const rowPx = mod(rowPxScreen, 8 * mapHeight);
-		auto const colPx = mod(colPxScreen, 8 * mapWidth);
+		auto const colPxIn = mod(colPxScreen, 8 * mapWidth);
+		auto const rowPxIn = mod(rowPxScreen, 8 * mapHeight);
 
-		auto const rowTx     = rowPx / 8;
-		auto const rowTxOffs = rowPx % 8;
+		auto const colPx = mod(applyAffineTxX(bg2P, bg2dx, rowPxScreen, colPxIn, rowPxIn), 8 * mapWidth);
+		auto const rowPx = mod(applyAffineTxY(bg2P, bg2dx, rowPxScreen, colPxIn, rowPxIn), 8 * mapHeight);
 
-		auto const colTx     = colPx / 8;
-		auto const colTxOffs = colPx % 8;
+		// fprintf(stderr, "(%3d, %3d) -> (%3d, %3d)\n", colPxIn, rowPxIn, colPx, rowPx);
 
-		auto const screenEntryIdx = (rowTx * mapWidth) + colTx;
+		auto const colTile     = colPx / 8;
+		auto const colTileOffs = colPx % 8;
+
+		auto const rowTile     = rowPx / 8;
+		auto const rowTileOffs = rowPx % 8;
+
+		auto const screenEntryIdx = colTile + (rowTile * mapWidth);
 		auto const screenEntry = ((uint8_t*)&screenBlocks[sbb])[screenEntryIdx];
 
 		auto const charBlock = charBlocks[cbb][screenEntry];
 
-		auto const px = (rowTxOffs * 8) + colTxOffs;
+		auto const px = colTileOffs + (rowTileOffs * 8);
 		auto const colorIdx = ((uint8_t*)charBlock.buf)[px];
 
 		return colorIdx;
 	};
 
-	for (int i = 0; i < screenHeight; i++) {
-		auto const rowPx = i;
+	for (int rowPx = 0; rowPx < screenHeight; rowPx++) {
 
-		for (int j = 0; j < screenWidth; j++) {
-			auto const colPx = j - 176;
+		for (int colPx = 0; colPx < screenWidth; colPx++) {
 
-			auto const colorIdx = getColorIdx(rowPx, colPx);
-			if (colorIdx > 0) {
-				auto const color = palBank[colorIdx];
-				auto const r = (color >>  0) & 0x1f;
-				auto const g = (color >>  5) & 0x1f;
-				auto const b = (color >> 10) & 0x1f;
+			auto const colorIdx = getColorIdx(colPx, rowPx);
+			auto const color = (colorIdx > 0)
+				? palBank[colorIdx]
+				: 0;
+			auto const r = (color >>  0) & 0x1f;
+			auto const g = (color >>  5) & 0x1f;
+			auto const b = (color >> 10) & 0x1f;
 
-				SDL_SetRenderDrawColor(sdlState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
-				SDL_RenderDrawPoint(sdlState.renderer.get(), j, i);
-			}
+			SDL_SetRenderDrawColor(sdlState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
+			SDL_RenderDrawPoint(sdlState.renderer.get(), colPx, rowPx);
 		}
 
 		dma3.TryRunHblank();
