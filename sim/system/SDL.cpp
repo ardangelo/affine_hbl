@@ -1,13 +1,13 @@
 #include "SDL.hpp"
 
-SDL::SDLState::SDLState()
+LibSDLState::LibSDLState()
 {
 	SDL_Init(SDL_INIT_VIDEO);
 
 	{ SDL_Renderer *rawRenderer = nullptr;
 	  SDL_Window   *rawWindow   = nullptr;
 
-		SDL_CreateWindowAndRenderer(screenWidth, screenHeight, 0, &rawWindow, &rawRenderer);
+		SDL_CreateWindowAndRenderer(SDL::screenWidth, SDL::screenHeight, 0, &rawWindow, &rawRenderer);
 		renderer = unique_SDL_Renderer{rawRenderer, SDL_DestroyRenderer};
 		window   = unique_SDL_Window{rawWindow, SDL_DestroyWindow};
 	}
@@ -16,7 +16,7 @@ SDL::SDLState::SDLState()
 	SDL_RenderClear(renderer.get());
 }
 
-SDL::SDLState::~SDLState()
+LibSDLState::~LibSDLState()
 {
 	SDL_Quit();
 }
@@ -57,34 +57,8 @@ void SDL::DMA::runTransfer()
 	// TODO: DMA IRQ
 }
 
-static constexpr auto hblankEnabledDmaMask = vram::dma_control
-	{ .timing = vram::dma_control::Timing::Hblank
-	, .enabled = true
-};
-void SDL::DMA::TryRunHblank()
+void SDL::runRender()
 {
-	if (control.Get() & hblankEnabledDmaMask) {
-		runTransfer();
-	}
-
-	// TODO: determine if this is the right blank repeat behavior
-	if (control.Get().repeatAtBlank == false) {
-		control.Get().enabled = false;
-	}
-}
-
-void SDL::VBlankIntrWait()
-{
-	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
-	if (irqsEnabledFlag) {
-		if (irqsEnabled & vblankInterruptMask) {
-			irqsRaised.vblank = 1;
-			irqServiceRoutine();
-			biosIrqsRaised.vblank = 0;
-			irqsRaised.vblank = 0;
-		}
-	}
-
 	auto const getMapHeight = [](uint16_t dispControl, vram::bg_control::MapSize const mapSize) {
 		return 64;
 	};
@@ -151,14 +125,51 @@ void SDL::VBlankIntrWait()
 			auto const g = (color >>  5) & 0x1f;
 			auto const b = (color >> 10) & 0x1f;
 
-			SDL_SetRenderDrawColor(sdlState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
-			SDL_RenderDrawPoint(sdlState.renderer.get(), colPx, rowPx);
+			SDL_SetRenderDrawColor(libSDLState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
+			SDL_RenderDrawPoint(libSDLState.renderer.get(), colPx, rowPx);
 		}
 
-		dma3.TryRunHblank();
+		runHblank();
 	}
 
-	SDL_RenderPresent(sdlState.renderer.get());
+	SDL_RenderPresent(libSDLState.renderer.get());
+}
+
+void SDL::runHblank()
+{
+	static constexpr auto hblankEnabledDmaMask = vram::dma_control
+		{ .timing = vram::dma_control::Timing::Hblank
+		, .enabled = true
+	};
+
+	if (dma3.control.Get() & hblankEnabledDmaMask) {
+		dma3.runTransfer();
+	}
+
+	// TODO: determine if this is the right blank repeat behavior
+	if (dma3.control.Get().repeatAtBlank == false) {
+		dma3.control.Get().enabled = false;
+	}
+}
+
+void SDL::runVblank()
+{
+	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
+	if (irqsEnabledFlag) {
+		if (irqsEnabled & vblankInterruptMask) {
+			irqsRaised.vblank = 1;
+			irqServiceRoutine();
+			biosIrqsRaised.vblank = 0;
+			irqsRaised.vblank = 0;
+		}
+	}
+
+	runRender();
+}
+
+void SDL::VBlankIntrWait()
+{
+	runVblank();
 }
 
 void SDL::pump_events(event::queue_type& queue)
