@@ -8,12 +8,14 @@
 #include "system/GBA.hpp"
 using sys = GBA;
 
+#define IWRAM_CODE __attribute__((section(".iwram"), long_call))
 #define dbgprintf(...)
 
 #elif defined(__sdl)
 #include "system/SDL.hpp"
 using sys = SDL;
 
+#define IWRAM_CODE
 #define dbgprintf fprintf
 
 #endif

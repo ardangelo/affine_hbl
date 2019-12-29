@@ -3,7 +3,7 @@ include $(DEVKITARM)/gba_rules
 
 ROMNAME	= main
 
-CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
+CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -flto -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
 LDFLAGS  =
 
 # GBA flags
@@ -19,7 +19,7 @@ GBA_IARCH = -mthumb-interwork -marm -mlong-calls
 GBA_CC       = arm-none-eabi-g++
 GBA_ASFLAGS  = -mthumb-interwork
 GBA_CXXFLAGS = $(TONC_CFLAGS) -mcpu=arm7tdmi -mtune=arm7tdmi -D__gba
-GBA_LDFLAGS	 = $(TONC_LIBS) $(GBA_RARCH) $(GBA_SPECS) -Wl,-Map,$(ROMNAME).map
+GBA_LDFLAGS	 = $(TONC_LIBS) $(GBA_SPECS) -Wl,-Map,$(ROMNAME).map
 
 # SDL flags
 
@@ -38,8 +38,8 @@ GAME_HEADERS = Game.hpp World.hpp Menu.hpp resources.hpp
 GBA_HEADERS = $(SYS_HEADERS) system/GBA.hpp
 SDL_HEADERS = $(SYS_HEADERS) system/SDL.hpp
 
-GBA_OBJS = main.gba.o game/Game.gba.o game/Menu.gba.o game/World.gba.o
-SDL_OBJS = main.sdl.o game/Game.sdl.o game/Menu.sdl.o game/World.sdl.o system/SDL.sdl.o
+GBA_OBJS = main.gba.o game/Game.gba.o game/Game.iwram.gba.o game/Menu.gba.o game/World.gba.o
+SDL_OBJS = main.sdl.o game/Game.sdl.o game/Game.iwram.sdl.o game/Menu.sdl.o game/World.sdl.o system/SDL.sdl.o
 
 # GBA targets
 

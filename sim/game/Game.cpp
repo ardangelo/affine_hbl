@@ -3,46 +3,23 @@
 // Global IRQ implementation
 namespace irq
 {
-static volatile auto vblankCount = uint32_t{0};
 
-static vram::affine::param affineParams[161];
-static constexpr auto stopDmaControl = vram::dma_control{};
-static constexpr auto affineHblankDmaControl = vram::dma_control
-	{ .count = 4
-	, .destAdjust    = vram::dma_control::Adjust::Reload
-	, .sourceAdjust  = vram::dma_control::Adjust::Increment
-	, .repeatAtBlank = true
-	, .chunkSize     = vram::dma_control::ChunkSize::Bits32
-	, .timing        = vram::dma_control::Timing::Hblank
-	, .irqNotify     = false
-	, .enabled       = true
-};
-
-void isr()
+namespace iwram
 {
-	auto const irqsRaised = uint16_t{sys::irqsRaised};
+	extern
+	volatile uint32_t vblankCount;
 
-	if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
-		vblankCount++;
+	extern
+	vram::affine::param affineParams[161];
 
-		sys::dma3Control = stopDmaControl;
-		sys::dma3Source  = (const void*)&affineParams[1];
-		sys::dma3Dest    = (void*)sys::bg2aff.begin();
-		sys::dma3Control = affineHblankDmaControl;
+	IWRAM_CODE extern
+	void isr();
 
-		sys::irqsRaised     = vblankMask;
-		sys::biosIrqsRaised = vblankMask;
-	}
-}
+	IWRAM_CODE extern
+	void install();
+} // namespace iwram
 
-void install()
-{
-	sys::irqServiceRoutine = isr;
-	sys::irqsEnabled = vram::interrupt_mask { .vblank = 1 };
-	sys::irqsEnabledFlag = 1;
-}
-
-auto getVblankCount() { return vblankCount; }
+auto getVblankCount() { return iwram::vblankCount; }
 
 } // namespace irq
 
@@ -144,7 +121,7 @@ Game::Game()
 	sys::screenBlocks[screenBlockBase][0] =
 		vram::screen_entry{4, 0, 0, 0};
 
-	irq::install();
+	irq::iwram::install();
 }
 
 void Game::Simulate()
@@ -201,7 +178,7 @@ void Game::FlipAffineBuffer() const
 	sys::VBlankIntrWait();
 
 	for (int i = 0; i < sys::screenHeight; i++) {
-		irq::affineParams[i] = m_affineParams[i];
+		irq::iwram::affineParams[i] = m_affineParams[i];
 	}
-	irq::affineParams[sys::screenHeight] = m_affineParams[0];
+	irq::iwram::affineParams[sys::screenHeight] = m_affineParams[0];
 }
