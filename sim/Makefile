@@ -3,7 +3,7 @@ include $(DEVKITARM)/gba_rules
 
 ROMNAME	= main
 
-CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
+CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -flto -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
 LDFLAGS  =
 
 # GBA flags
@@ -32,16 +32,19 @@ SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs) -mconsole
 
 all: $(ROMNAME).gba $(ROMNAME).exe
 
-HEADERS = register.hpp vram.hpp resources.hpp event.hpp
-GBA_HEADERS = $(HEADERS) system/GBA.hpp
-SDL_HEADERS = $(HEADERS) system/SDL.hpp
+SYS_HEADERS = register.hpp vram.hpp event.hpp
+GBA_HEADERS = $(SYS_HEADERS) system/GBA.hpp
+SDL_HEADERS = $(SYS_HEADERS) system/SDL.hpp
+
+GAME_HEADERS = Game.hpp World.hpp Menu.hpp resources.hpp
+
+GBA_OBJS = main.gba.o game/Game.gba.o game/Menu.gba.o game/World.gba.o
+SDL_OBJS = main.sdl.o game/Game.sdl.o game/Menu.sdl.o game/World.sdl.o system/SDL.sdl.o
 
 # GBA targets
 
-main.gba.o : main.cpp $(GBA_HEADERS)
+%.gba.o : %.cpp $(GBA_HEADERS)
 	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) $(IARCH) -c $< -o $@
-
-GBA_OBJS = main.gba.o
 
 # link objects into an elf
 $(ROMNAME).elf : $(GBA_OBJS)
@@ -54,18 +57,13 @@ $(ROMNAME).gba : $(ROMNAME).elf
 
 # SDL targets
 
-system.sdl.o: system/SDL.cpp $(SDL_HEADERS)
+%.sdl.o: %.cpp $(SDL_HEADERS)
 	$(SDL_CC) $(CXXFLAGS) $(SDL_CXXFLAGS) -c $< -o $@
-
-main.sdl.o: main.cpp $(SDL_HEADERS)
-	$(SDL_CC) $(CXXFLAGS) $(SDL_CXXFLAGS) -c $< -o $@
-
-SDL_OBJS = main.sdl.o system.sdl.o
 
 $(ROMNAME).exe: $(SDL_OBJS)
 	$(SDL_CC) $(SDL_OBJS) $(LDFLAGS) $(SDL_LDFLAGS) -o $(ROMNAME).exe
 
 clean :
 	@rm -fv *.gba *.elf *.sav *.exe
-	@rm -fv *.o
+	@rm -fv *.o game/*.o system/*.o
 	@rm -fv *.map
