@@ -8,7 +8,6 @@ void World::Camera::Think(Cmd const& cmd)
 	a_y += cmd.da_y;
 }
 
-
 void World::Camera::Tick(Cmd const& cmd)
 {
 	Think(cmd);

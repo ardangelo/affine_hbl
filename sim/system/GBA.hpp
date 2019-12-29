@@ -6,10 +6,12 @@
 #include "vram.hpp"
 #include "event.hpp"
 
+#ifndef swi_call
 #ifdef __thumb__
 #define swi_call(x)   asm volatile("swi\t"#x ::: "r0", "r1", "r2", "r3")
 #else
 #define swi_call(x)   asm volatile("swi\t"#x"<<16" ::: "r0", "r1", "r2", "r3")
+#endif
 #endif
 
 struct GBA
@@ -40,11 +42,13 @@ static inline constexpr auto palBank = vram::memmap<vram::pal_bank, 0x05000000>{
 static inline constexpr auto screenBlocks = vram::memmap<vram::screen_blocks, 0x06000000>{};
 static inline constexpr auto charBlocks   = vram::memmap<vram::char_blocks,   0x06000000>{};
 
-static inline void VBlankIntrWait() {
+static inline void VBlankIntrWait()
+{
 	swi_call(0x05);
 }
 
-static inline constexpr void pump_events(event::queue_type& queue) {
+static inline constexpr void PumpEvents(event::queue_type& queue)
+{
 	queue.push_back(event::Key
 		{ .type  = event::Key::Type::Right
 		, .state = event::Key::State::On

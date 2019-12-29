@@ -172,7 +172,7 @@ void SDL::VBlankIntrWait()
 	runVblank();
 }
 
-void SDL::pump_events(event::queue_type& queue)
+void SDL::PumpEvents(event::queue_type& queue)
 {
 	SDL_Event event;
 

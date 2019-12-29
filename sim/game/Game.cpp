@@ -65,7 +65,7 @@ void Game::tryFillCmds()
 
 	for (auto tic = lastInputTime; tic < inputTime; tic++) {
 		// Fill events
-		sys::pump_events(m_eventQueue);
+		sys::PumpEvents(m_eventQueue);
 
 		// Drain events
 		while (!m_eventQueue.empty()) {
