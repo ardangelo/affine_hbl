@@ -60,7 +60,7 @@ public: // interface
 	void Simulate();
 
 	// Render game (menu, world) state into affine buffers
-	void Render();
+	IWRAM_CODE void Render();
 
 	// Copy affine buffers to system video memory
 	void FlipAffineBuffer() const;
