@@ -23,16 +23,16 @@ World::Cmd World::BuildCmd() const
 	auto cmd = Cmd{};
 
 	using Ty = event::Key::Type;
-	if (keydown[Ty::Right]) {
+	if (m_keydown[Ty::Right]) {
 		cmd.da_x += speed;
 	}
-	if (keydown[Ty::Left]) {
+	if (m_keydown[Ty::Left]) {
 		cmd.da_x -= speed;
 	}
-	if (keydown[Ty::Up]) {
+	if (m_keydown[Ty::Up]) {
 		cmd.da_y -= speed;
 	}
-	if (keydown[Ty::Down]) {
+	if (m_keydown[Ty::Down]) {
 		cmd.da_y += speed;
 	}
 
@@ -52,12 +52,12 @@ bool World::Respond(event::Key key)
 				return true;
 
 			default:
-				keydown[key.type] = true;
+				m_keydown[key.type] = true;
 				return true;
 		}
 
 	case St::Off:
-		keydown[key.type] = false;
+		m_keydown[key.type] = false;
 		return false;
 
 	}
@@ -65,7 +65,7 @@ bool World::Respond(event::Key key)
 
 void World::Tick(World::Cmd const& cmd)
 {
-	if (mode == Mode::InGame) {
-		camera.Tick(cmd);
+	if (m_mode == Mode::InGame) {
+		m_camera.Tick(cmd);
 	}
 }

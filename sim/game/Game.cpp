@@ -61,37 +61,37 @@ struct Responder
 
 void Game::tryFillCmds()
 {
-	auto const [lastInputTime, inputTime] = worldCmdQueue.NextInputTimeFrame();
+	auto const [lastInputTime, inputTime] = m_worldCmdQueue.NextInputTimeFrame();
 
 	for (auto tic = lastInputTime; tic < inputTime; tic++) {
 		// Fill events
-		sys::pump_events(event_queue);
+		sys::pump_events(m_eventQueue);
 
 		// Drain events
-		while (!event_queue.empty()) {
-			auto const ev = event_queue.pop_front();
+		while (!m_eventQueue.empty()) {
+			auto const ev = m_eventQueue.pop_front();
 
-			if (std::visit(Responder{menu}, ev)) {
+			if (std::visit(Responder{m_menu}, ev)) {
 				continue;
 			}
-			std::visit(Responder{world}, ev);
+			std::visit(Responder{m_world}, ev);
 		}
 
-		if (worldCmdQueue.full()) {
+		if (m_worldCmdQueue.full()) {
 			break;
 		} else {
-			worldCmdQueue.push_back(world.BuildCmd());
+			m_worldCmdQueue.push_back(m_world.BuildCmd());
 		}
 	}
 }
 
 void Game::drainCmds()
 {
-	while (!worldCmdQueue.empty()) {
-		menu.Tick();
+	while (!m_worldCmdQueue.empty()) {
+		m_menu.Tick();
 
-		auto const cmd = worldCmdQueue.pop_front();
-		world.Tick(cmd);
+		auto const cmd = m_worldCmdQueue.pop_front();
+		m_world.Tick(cmd);
 	}
 }
 
@@ -101,10 +101,10 @@ uint32_t Game::GetTime()
 }
 
 Game::Game()
-	: event_queue{}
-	, worldCmdQueue{}
-	, world{}
-	, menu{}
+	: m_eventQueue{}
+	, m_worldCmdQueue{}
+	, m_world{}
+	, m_menu{}
 {
 	sys::dispControl = 0x402;
 	sys::dispStat = 0x8;
@@ -155,7 +155,7 @@ void Game::Simulate()
 
 void Game::Render()
 {
-	auto const& camera = world.camera;
+	auto const& camera = m_world.m_camera;
 
 	using fp0      = math::fixed_point< 0, uint32_t>;
 	using trig_fp  = math::fixed_point< 8, uint32_t>;
@@ -173,17 +173,17 @@ void Game::Render()
 		auto const lam_cos_phi = scale_fp{lam * cos_phi};
 		auto const lam_sin_phi = scale_fp{lam * sin_phi};
 
-		affineParams[i].P[0] = P_fp{lam_cos_phi}.to_rep();
-		affineParams[i].P[1] = 0;
-		affineParams[i].P[2] = P_fp{lam_sin_phi}.to_rep();
-		affineParams[i].P[3] = 0;
+		m_affineParams[i].P[0] = P_fp{lam_cos_phi}.to_rep();
+		m_affineParams[i].P[1] = 0;
+		m_affineParams[i].P[2] = P_fp{lam_sin_phi}.to_rep();
+		m_affineParams[i].P[3] = 0;
 
-		affineParams[i].dx[0] = dx_fp
+		m_affineParams[i].dx[0] = dx_fp
 			{ dx_fp{camera.a_x}
 			- (fp0{120} * dx_fp{lam_cos_phi})
 			+ dx_fp{M7_D * lam_sin_phi}
 		}.to_rep();
-		affineParams[i].dx[1] = dx_fp
+		m_affineParams[i].dx[1] = dx_fp
 			{ dx_fp{camera.a_y}
 			- (fp0{120} * dx_fp{lam_sin_phi})
 			- dx_fp{M7_D * lam_cos_phi}
@@ -201,7 +201,7 @@ void Game::FlipAffineBuffer() const
 	sys::VBlankIntrWait();
 
 	for (int i = 0; i < sys::screenHeight; i++) {
-		irq::affineParams[i] = affineParams[i];
+		irq::affineParams[i] = m_affineParams[i];
 	}
-	irq::affineParams[sys::screenHeight] = affineParams[0];
+	irq::affineParams[sys::screenHeight] = m_affineParams[0];
 }

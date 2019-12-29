@@ -8,7 +8,7 @@ namespace
 	using coord_fp = math::fixed_point<4, uint32_t>;
 }
 
-struct World
+class World
 {
 public: // types
 	struct Cmd
@@ -39,17 +39,17 @@ public: // types
 	};
 
 private: // members
-	bool keydown[5];
-	Mode mode;
+	bool m_keydown[5];
+	Mode m_mode;
 
 public: // tickers
-	Camera camera;
+	Camera m_camera;
 
 public: // interface
 	constexpr World()
-		: keydown{}
-		, mode{Mode::InGame}
-		, camera{}
+		: m_keydown{}
+		, m_mode{Mode::InGame}
+		, m_camera{}
 	{}
 
 	Cmd BuildCmd() const;

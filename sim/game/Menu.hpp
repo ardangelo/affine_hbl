@@ -2,7 +2,7 @@
 
 #include "World.hpp"
 
-struct Menu
+class Menu
 {
 private: // members
 	bool active;

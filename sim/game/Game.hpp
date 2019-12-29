@@ -21,7 +21,7 @@ using sys = SDL;
 #include "World.hpp"
 #include "Menu.hpp"
 
-struct Game
+class Game
 {
 public: // types
 	static constexpr auto BackupTics = 16;
@@ -36,12 +36,12 @@ public: // types
 	};
 
 public: // members
-	circular_queue<event::type, 16> event_queue;
-	vram::affine::param affineParams[sys::screenHeight];
+	circular_queue<event::type, 16> m_eventQueue;
+	vram::affine::param m_affineParams[sys::screenHeight];
 
-	InputDelayBuffer worldCmdQueue;
-	World world;
-	Menu menu;
+	InputDelayBuffer m_worldCmdQueue;
+	World m_world;
+	Menu m_menu;
 
 private: // helpers
 	// 1. Try to collect input commands to simulate
