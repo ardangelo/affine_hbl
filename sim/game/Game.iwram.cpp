@@ -62,7 +62,7 @@ namespace
 IWRAM_CODE
 void Game::Render()
 {
-	auto const camera = m_world.m_camera; // copy from EWRAM
+	auto const& camera = m_world.m_camera;
 
 	auto const M7_D = fp0{128};
 	auto const phi = 0.4;

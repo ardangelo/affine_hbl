@@ -3,8 +3,8 @@ include $(DEVKITARM)/gba_rules
 
 ROMNAME	= main
 
-CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -flto -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
-LDFLAGS  =
+CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
+LDFLAGS  = $(CXXFLAGS)
 
 # GBA flags
 
@@ -47,7 +47,7 @@ SDL_OBJS = main.sdl.o game/Game.sdl.o game/Game.iwram.sdl.o game/Menu.sdl.o game
 	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) $(GBA_IARCH) -c $< -o $@
 
 %.gba.o : %.cpp $(GBA_HEADERS)
-	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) $(GBA_RARCH) -c $< -o $@
+	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) -flto $(GBA_RARCH) -c $< -o $@
 
 # link objects into an elf
 $(ROMNAME).elf : $(GBA_OBJS)
