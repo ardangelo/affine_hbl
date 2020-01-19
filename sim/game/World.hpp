@@ -3,6 +3,8 @@
 #include "math.hpp"
 #include "event.hpp"
 
+#include "BSP.hpp"
+
 namespace
 {
 	using coord_fp = math::fixed_point<4, uint32_t>;
