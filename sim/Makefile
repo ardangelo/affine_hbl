@@ -1,8 +1,29 @@
-PATH := $(DEVKITARM)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
-include $(DEVKITARM)/gba_rules
-
 ROMNAME	= main
 
+TARGETS = $(ROMNAME)-bmp.exe
+
+# Detect devkitPro support
+ifneq (,$(wildcard $(DEVKITARM)/gba_rules))
+	# Source GBA Make rules
+	PATH := $(DEVKITARM)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
+	include $(DEVKITARM)/gba_rules
+
+	# Add GBA target
+	TARGETS += $(ROMNAME).gba
+endif
+
+# Set SDL package location for macOS / Windows
+PACKAGES = /opt/local/
+#PACKAGES = /mingw64
+
+# Detect SDL support, add SDL target
+ifneq (,$(wildcard $(PACKAGES)/bin/sdl2-config))
+	TARGETS += $(ROMNAME)-sdl.exe
+endif
+
+all: $(TARGETS)
+
+# General C++, LD flags
 CXXFLAGS = -I. -std=c++17 -g -O2 -Wall -ffast-math -fconcepts -fno-exceptions -fno-non-call-exceptions -fno-strict-aliasing -fno-rtti -Winvalid-pch
 LDFLAGS  = $(CXXFLAGS)
 
@@ -23,31 +44,41 @@ GBA_LDFLAGS	 = $(TONC_LIBS) $(GBA_SPECS) -Wl,-Map,$(ROMNAME).map
 
 # SDL flags
 
-#PACKAGES = /opt/local/
-PACKAGES = /mingw64
-
 SDL_CC = g++
 SDL_CXXFLAGS = $(shell $(PACKAGES)/bin/sdl2-config --cflags) -D__sdl
-SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs) -mconsole
+SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs)
+#SDL_LDFLAGS  = $(shell $(PACKAGES)/bin/sdl2-config --libs) -mconsole
 
-all: $(ROMNAME).gba $(ROMNAME).exe
+# BMP flags
+
+BMP_CC = g++
+BMP_CXXFLAGS = -D__bmp
+BMP_LDFLAGS  =
+
+# Game sources
 
 SYS_HEADERS  = register.hpp vram.hpp event.hpp
-GAME_HEADERS = Game.hpp World.hpp Menu.hpp resources.hpp
+GAME_HEADERS = game/Game.hpp game/World.hpp game/Menu.hpp game/resources.hpp game/BSP.hpp
 
-GBA_HEADERS = $(SYS_HEADERS) system/GBA.hpp
-SDL_HEADERS = $(SYS_HEADERS) system/SDL.hpp
+GBA_HEADERS = $(SYS_HEADERS) $(GAME_HEADERS) system/GBA.hpp
+SDL_HEADERS = $(SYS_HEADERS) $(GAME_HEADERS) system/PC.hpp system/SDL.hpp
+BMP_HEADERS = $(SYS_HEADERS) $(GAME_HEADERS) system/PC.hpp system/BMP.hpp
 
-GBA_OBJS = main.gba.o game/Game.gba.o game/Game.iwram.gba.o game/Menu.gba.o game/World.gba.o
-SDL_OBJS = main.sdl.o game/Game.sdl.o game/Game.iwram.sdl.o game/Menu.sdl.o game/World.sdl.o system/SDL.sdl.o
+# Game objects
+
+GAME_OBJS = main.@.o game/Game.@.o game/Game.iwram.@.o game/Menu.@.o game/World.@.o
+
+GBA_OBJS = $(patsubst %.@.o,%.gba.o,$(GAME_OBJS))
+SDL_OBJS = $(patsubst %.@.o,%.sdl.o,$(GAME_OBJS))
+BMP_OBJS = $(patsubst %.@.o,%.bmp.o,$(GAME_OBJS))
 
 # GBA targets
 
 %.iwram.gba.o : %.iwram.cpp $(GBA_HEADERS)
-	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) $(GBA_IARCH) -c $< -o $@
+	$(GBA_CC) $(CXXFLAGS) $(GBA_CXXFLAGS) $(GBA_IARCH) -c $< -o $@
 
 %.gba.o : %.cpp $(GBA_HEADERS)
-	$(CC) $(CXXFLAGS) $(GBA_CXXFLAGS) -flto $(GBA_RARCH) -c $< -o $@
+	$(GBA_CC) $(CXXFLAGS) $(GBA_CXXFLAGS) -flto $(GBA_RARCH) -c $< -o $@
 
 # link objects into an elf
 $(ROMNAME).elf : $(GBA_OBJS)
@@ -63,10 +94,18 @@ $(ROMNAME).gba : $(ROMNAME).elf
 %.sdl.o: %.cpp $(SDL_HEADERS)
 	$(SDL_CC) $(CXXFLAGS) $(SDL_CXXFLAGS) -c $< -o $@
 
-$(ROMNAME).exe: $(SDL_OBJS)
-	$(SDL_CC) $(SDL_OBJS) $(LDFLAGS) $(SDL_LDFLAGS) -o $(ROMNAME).exe
+$(ROMNAME)-sdl.exe: $(SDL_OBJS)
+	$(SDL_CC) $(SDL_OBJS) $(LDFLAGS) $(SDL_LDFLAGS) -o $(ROMNAME)-sdl.exe
 
-clean :
+# BMP targets
+
+%.bmp.o: %.cpp $(BMP_HEADERS)
+	$(BMP_CC) $(CXXFLAGS) $(BMP_CXXFLAGS) -c $< -o $@
+
+$(ROMNAME)-bmp.exe: $(BMP_OBJS)
+	$(BMP_CC) $(BMP_OBJS) $(LDFLAGS) $(BMP_LDFLAGS) -o $(ROMNAME)-bmp.exe
+
+clean:
 	@rm -fv *.gba *.elf *.sav *.exe
 	@rm -fv *.o game/*.o system/*.o
 	@rm -fv *.map

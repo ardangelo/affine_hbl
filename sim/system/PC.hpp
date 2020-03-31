@@ -1,27 +1,96 @@
-#include "SDL.hpp"
+#pragma once
 
-LibSDLState::LibSDLState()
+#include <memory>
+
+#include "register.hpp"
+#include "vram.hpp"
+#include "event.hpp"
+
+template <typename DrawImpl_>
+class PC
 {
-	SDL_Init(SDL_INIT_VIDEO);
+public: // types
+	using DrawImpl = DrawImpl_;
 
-	{ SDL_Renderer *rawRenderer = nullptr;
-	  SDL_Window   *rawWindow   = nullptr;
+	class DMA
+	{
+	public: // members
+		using Source = void const*;
+		Source source;
 
-		SDL_CreateWindowAndRenderer(SDL::screenWidth, SDL::screenHeight, 0, &rawWindow, &rawRenderer);
-		renderer = unique_SDL_Renderer{rawRenderer, SDL_DestroyRenderer};
-		window   = unique_SDL_Window{rawWindow, SDL_DestroyWindow};
+		using Dest = void*;
+		Dest dest;
+
+		struct Control : public io_val<Control, vram::dma_control> {
+			using io_base = io_val<Control, vram::dma_control>;
+			using io_base::operator=;
+			using io_base::operator|=;
+			static inline void apply(vram::dma_control const raw) {}
+		} control;
+
+	public: // interface
+		void runTransfer();
+	};
+
+private: // helpers
+
+	// Called by PC::VBlankIntrWait implementation
+	static void runVblank();
+
+	// Called after Vblank interrupts in runVblank
+	static void runRender();
+
+	// Called after each line rendered in runRender
+	static void runHblank();
+
+public: // static members
+
+	static inline constexpr auto screenWidth  = 240;
+	static inline constexpr auto screenHeight = 160;
+
+	static inline auto dispControl = uint16_t{};
+	static inline auto dispStat = uint16_t{};
+
+	static inline auto bg2Control = vram::bg_control{};
+
+	static inline auto  bg2aff = vram::affine::param::storage{};
+	static inline auto& bg2P   = bg2aff.P;
+	static inline auto& bg2dx  = bg2aff.dx;
+
+	static inline auto  dma3 = DMA{};
+	static inline auto& dma3Dest    = dma3.dest;
+	static inline auto& dma3Source  = dma3.source;
+	static inline auto& dma3Control = dma3.control;
+
+	static inline auto biosIrqsRaised    = vram::interrupt_mask{};
+	static inline auto irqServiceRoutine = (void(*)(void)){nullptr};
+	static inline auto irqsEnabled       = vram::interrupt_mask{};
+	static inline auto irqsRaised        = vram::interrupt_mask{};
+	static inline auto irqsEnabledFlag   = uint16_t{};
+
+	static inline auto palBank = vram::pal_bank::storage{};
+
+	static inline auto screenBlocks = vram::screen_blocks::storage{};
+	static inline auto charBlocks   = vram::char_blocks::storage{};
+
+public: // sys interface
+
+	static void VBlankIntrWait()
+	{
+		runVblank();
+
+		DrawImpl::waitNextFrame();
 	}
 
-	SDL_SetRenderDrawColor(renderer.get(), 0, 0, 0, 0);
-	SDL_RenderClear(renderer.get());
-}
+	static void PumpEvents(event::queue_type& queue)
+	{
+		DrawImpl::pumpEvents(queue);
+	}
 
-LibSDLState::~LibSDLState()
-{
-	SDL_Quit();
-}
+}; // struct PC
 
-void SDL::DMA::runTransfer()
+template <typename DrawImpl>
+void PC<DrawImpl>::DMA::runTransfer()
 {
 	auto const originalDest = dest;
 
@@ -57,7 +126,8 @@ void SDL::DMA::runTransfer()
 	// TODO: DMA IRQ
 }
 
-void SDL::runRender()
+template <typename DrawImpl>
+void PC<DrawImpl>::runRender()
 {
 	auto const getMapHeight = [](uint16_t dispControl, vram::bg_control::MapSize const mapSize) {
 		return 64;
@@ -125,17 +195,17 @@ void SDL::runRender()
 			auto const g = (color >>  5) & 0x1f;
 			auto const b = (color >> 10) & 0x1f;
 
-			SDL_SetRenderDrawColor(libSDLState.renderer.get(), 8 * r, 8 * g, 8 * b, 0xff);
-			SDL_RenderDrawPoint(libSDLState.renderer.get(), colPx, rowPx);
+			DrawImpl::drawPx(colPx, rowPx, r, g, b);
 		}
 
 		runHblank();
 	}
 
-	SDL_RenderPresent(libSDLState.renderer.get());
+	DrawImpl::updateDisplay();
 }
 
-void SDL::runHblank()
+template <typename DrawImpl>
+void PC<DrawImpl>::runHblank()
 {
 	static constexpr auto hblankEnabledDmaMask = vram::dma_control
 		{ .timing = vram::dma_control::Timing::Hblank
@@ -152,7 +222,8 @@ void SDL::runHblank()
 	}
 }
 
-void SDL::runVblank()
+template <typename DrawImpl>
+void PC<DrawImpl>::runVblank()
 {
 	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
 	if (irqsEnabledFlag) {
@@ -165,31 +236,4 @@ void SDL::runVblank()
 	}
 
 	runRender();
-}
-
-void SDL::VBlankIntrWait()
-{
-	runVblank();
-}
-
-void SDL::PumpEvents(event::queue_type& queue)
-{
-	SDL_Event event;
-
-	if (!SDL_PollEvent(&event)) {
-		return;
-	}
-
-	if (event.type == SDL_QUIT) {
-		exit(0);
-	}
-
-	queue.push_back(event::Key
-		{ .type  = event::Key::Type::Right
-		, .state = event::Key::State::On
-	});
-	queue.push_back(event::Key
-		{ .type  = event::Key::Type::Down
-		, .state = event::Key::State::On
-	});
 }

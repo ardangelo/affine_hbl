@@ -18,6 +18,13 @@ using sys = SDL;
 #define IWRAM_CODE
 #define dbgprintf fprintf
 
+#elif defined(__bmp)
+#include "system/BMP.hpp"
+using sys = BMP;
+
+#define IWRAM_CODE
+#define dbgprintf fprintf
+
 #endif
 
 #include "World.hpp"
@@ -39,7 +46,7 @@ public: // types
 
 public: // members
 	circular_queue<event::type, 16> m_eventQueue;
-	vram::affine::param m_affineParams[sys::screenHeight];
+	std::array<vram::affine::param, sys::screenHeight> m_affineParams;
 
 	InputDelayBuffer m_worldCmdQueue;
 	World m_world;

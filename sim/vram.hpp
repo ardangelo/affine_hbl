@@ -53,13 +53,13 @@ struct bg_control
 	static constexpr bg_control from_raw(uint16_t const mask)
 	{
 		return bg_control
-			{ .priority{(uint16_t)((mask >>          0) & 0x3)}
-			, .charBlockBase{(uint16_t)((mask >>     2) & 0x3)}
-			, .mosaicEnabled{(uint16_t)((mask >>     6) & 0x1)}
-			, .palMode{(uint16_t)((mask >> 7) & 0x1)}
-			, .screenBlockBase{(uint16_t)((mask >>   8) & 0x1f)}
-			, .affineWrapEnabled{(uint16_t)((mask >> 13) & 0x1)}
-			, .mapSize{(uint16_t)((mask >> 14) & 0x3)}
+			{ .priority          = (uint16_t)((mask >>  0) & 0x03)
+			, .charBlockBase     = (uint16_t)((mask >>  2) & 0x03)
+			, .mosaicEnabled     = (uint16_t)((mask >>  6) & 0x01)
+			, .palMode           = (uint16_t)((mask >>  7) & 0x01)
+			, .screenBlockBase   = (uint16_t)((mask >>  8) & 0x1f)
+			, .affineWrapEnabled = (uint16_t)((mask >> 13) & 0x01)
+			, .mapSize           = (uint16_t)((mask >> 14) & 0x03)
 		};
 	}
 
@@ -255,20 +255,20 @@ struct interrupt_mask
 	static constexpr interrupt_mask from_raw(uint16_t const mask)
 	{
 		return interrupt_mask
-			{ .vblank{(uint16_t)((mask >>  0) & 0x1)}
-			, .hblank{(uint16_t)((mask >>  1) & 0x1)}
-			, .vcount{(uint16_t)((mask >>  2) & 0x1)}
-			, .timer0{(uint16_t)((mask >>  3) & 0x1)}
-			, .timer1{(uint16_t)((mask >>  4) & 0x1)}
-			, .timer2{(uint16_t)((mask >>  5) & 0x1)}
-			, .timer3{(uint16_t)((mask >>  6) & 0x1)}
-			, .serialComm{(uint16_t)((mask >>  7) & 0x1)}
-			, .dma0{(uint16_t)((mask >>  8) & 0x1)}
-			, .dma1{(uint16_t)((mask >>  9) & 0x1)}
-			, .dma2{(uint16_t)((mask >> 10) & 0x1)}
-			, .dma3{(uint16_t)((mask >> 11) & 0x1)}
-			, .keypad{(uint16_t)((mask >> 12) & 0x1)}
-			, .gamePak{(uint16_t)((mask >> 13) & 0x1)}
+			{ .vblank     = (uint16_t)((mask >>  0) & 0x1)
+			, .hblank     = (uint16_t)((mask >>  1) & 0x1)
+			, .vcount     = (uint16_t)((mask >>  2) & 0x1)
+			, .timer0     = (uint16_t)((mask >>  3) & 0x1)
+			, .timer1     = (uint16_t)((mask >>  4) & 0x1)
+			, .timer2     = (uint16_t)((mask >>  5) & 0x1)
+			, .timer3     = (uint16_t)((mask >>  6) & 0x1)
+			, .serialComm = (uint16_t)((mask >>  7) & 0x1)
+			, .dma0       = (uint16_t)((mask >>  8) & 0x1)
+			, .dma1       = (uint16_t)((mask >>  9) & 0x1)
+			, .dma2       = (uint16_t)((mask >> 10) & 0x1)
+			, .dma3       = (uint16_t)((mask >> 11) & 0x1)
+			, .keypad     = (uint16_t)((mask >> 12) & 0x1)
+			, .gamePak    = (uint16_t)((mask >> 13) & 0x1)
 		};
 	}
 
