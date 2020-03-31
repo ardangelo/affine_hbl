@@ -29,7 +29,7 @@ LDFLAGS  = $(CXXFLAGS)
 
 # GBA flags
 
-TONC_CFLAGS = -I../include
+TONC_CFLAGS = -Iinclude
 TONC_LIBS   = -Llib -ltonc
 
 GBA_SPECS = -specs=gba_mb.specs
@@ -106,6 +106,6 @@ $(ROMNAME)-bmp.exe: $(BMP_OBJS)
 	$(BMP_CC) $(BMP_OBJS) $(LDFLAGS) $(BMP_LDFLAGS) -o $(ROMNAME)-bmp.exe
 
 clean:
-	@rm -fv *.gba *.elf *.sav *.exe
+	@rm -fv *.gba *.elf *.sav *.map
 	@rm -fv *.o game/*.o system/*.o
-	@rm -fv *.map
+	@rm -rfv *.exe *.dSYM
