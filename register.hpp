@@ -39,6 +39,36 @@ public:
 	}
 };
 
+template <typename T, typename Base, size_t address_>
+class read_write_overlay
+{
+public:
+	constexpr operator Base() const {
+		return *(Base const*)address_;
+	}
+
+	void operator= (T const& val) const {
+		*(Base volatile*)address_ = *(Base const*)&val;
+	}
+
+	void operator= (Base const& val) const {
+		*(Base volatile*)address_ = val;
+	}
+
+	void operator|= (T const& val) const {
+		*(Base volatile*)address_ |= *(Base const*)&val;
+	}
+
+	T operator& (T const& rhs) const {
+		auto result = *(Base volatile*)address_ & *(Base const*)&rhs;
+		return *(T*)(&result);
+	}
+
+	T volatile* operator -> () const {
+		return (T volatile*)address_;
+	}
+};
+
 template <typename T, size_t address_>
 class read_only
 {

@@ -21,7 +21,7 @@ static inline constexpr auto screenHeight = 160;
 static inline constexpr auto dispControl  = reg::read_write<uint16_t, 0x04000000>{};
 static inline constexpr auto dispStat     = reg::read_write<uint16_t, 0x04000004>{};
 
-static inline constexpr auto bg2Control = reg::read_write<uint16_t, 0x0400000c>{};
+static inline constexpr auto bg2Control = reg::read_write_overlay<vram::bg_control, uint16_t, 0x0400000c>{};
 
 static inline constexpr auto bg2aff = vram::memmap<vram::affine::param, 0x04000020>{};
 static inline constexpr auto bg2P   = vram::memmap<vram::affine::P,     0x04000020>{};
@@ -31,11 +31,11 @@ static inline constexpr auto dma3Source  = reg::write_only<void const*, 0x040000
 static inline constexpr auto dma3Dest    = reg::write_only<void*, 0x040000D8>{};
 static inline constexpr auto dma3Control = reg::write_only<uint32_t, 0x040000DC>{};
 
-static inline constexpr auto biosIrqsRaised    = reg::read_write<uint16_t, 0x03fffff8>{};
+static inline constexpr auto biosIrqsRaised    = reg::read_write_overlay<vram::interrupt_mask, uint16_t, 0x03fffff8>{};
 static inline constexpr auto irqServiceRoutine = reg::write_only<void(*)(void), 0x03fffffc>{};
-static inline constexpr auto irqsEnabled       = reg::read_write<uint16_t, 0x04000200>{};
-static inline constexpr auto irqsRaised        = reg::read_write<uint16_t, 0x04000202>{};
-static inline constexpr auto irqsEnabledFlag   = reg::read_write<uint16_t, 0x04000208>{};
+static inline constexpr auto irqsEnabled       = reg::read_write_overlay<vram::interrupt_mask, uint16_t, 0x04000200>{};
+static inline constexpr auto irqsRaised        = reg::read_write_overlay<vram::interrupt_mask, uint16_t, 0x04000202>{};
+static inline constexpr auto irqsEnabledFlag   = reg::read_write_overlay<vram::interrupt_master, uint32_t, 0x04000208>{};
 
 static inline constexpr auto palBank = vram::memmap<vram::pal_bank, 0x05000000>{};
 

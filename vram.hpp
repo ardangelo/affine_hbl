@@ -5,6 +5,30 @@
 namespace vram
 {
 
+template <typename T, typename Base>
+struct overlay {
+	constexpr operator Base() const {
+		return *(Base const*)this;
+	}
+
+	auto operator= (Base const& t) {
+		return *(Base*)this = t;
+	}
+
+	auto operator |= (Base const& t) {
+		return *(Base*)this |= t;
+	}
+
+	T operator& (Base const& t) const {
+		auto result = *(Base const*)this & t;
+		return *(T*)(&result);
+	}
+
+	T* operator -> () {
+		return (T*)this;
+	}
+};
+
 template <typename Base, size_t address_>
 struct memmap {
 	static inline auto begin() {
@@ -16,8 +40,7 @@ struct memmap {
 	}
 };
 
-struct bg_control
-{
+struct bg_control : public overlay<bg_control, uint16_t> {
 	uint16_t priority : 2;
 	uint16_t charBlockBase : 2;
 
@@ -49,44 +72,10 @@ struct bg_control
 		, Aff128x128 = 3
 	};
 	uint16_t mapSize : 2;
-
-	static constexpr bg_control from_raw(uint16_t const mask)
-	{
-		return bg_control
-			{ .priority          = (uint16_t)((mask >>  0) & 0x03)
-			, .charBlockBase     = (uint16_t)((mask >>  2) & 0x03)
-			, .mosaicEnabled     = (uint16_t)((mask >>  6) & 0x01)
-			, .palMode           = (uint16_t)((mask >>  7) & 0x01)
-			, .screenBlockBase   = (uint16_t)((mask >>  8) & 0x1f)
-			, .affineWrapEnabled = (uint16_t)((mask >> 13) & 0x01)
-			, .mapSize           = (uint16_t)((mask >> 14) & 0x03)
-		};
-	}
-
-	constexpr operator uint16_t() const {
-		return (priority          <<  0)
-			 | (charBlockBase     <<  2)
-			 | (mosaicEnabled     <<  6)
-			 | ((uint16_t)palMode <<  7)
-			 | (screenBlockBase   <<  8)
-			 | (affineWrapEnabled <<  13)
-			 | ((uint16_t)mapSize <<  14);
-	}
-
-	auto& operator= (uint16_t const raw) {
-		*this = from_raw(raw);
-		return *this;
-	}
-
-	auto& operator|= (uint16_t const raw) {
-		*this = *this | from_raw(raw);
-		return *this;
-	}
 } __attribute__((packed));
 static_assert(sizeof(bg_control) == sizeof(uint16_t));
 
-struct dma_control
-{
+struct dma_control : public overlay<dma_control, uint32_t> {
 	uint32_t count : 16;
 
 	uint32_t _ : 5;
@@ -123,18 +112,6 @@ struct dma_control
 
 	uint32_t irqNotify : 1;
 	uint32_t enabled   : 1;
-
-	constexpr operator uint32_t() const {
-		return (count         <<  0)
-			 | (destAdjust    << 21)
-			 | (sourceAdjust  << 23)
-			 | (repeatAtBlank << 25)
-			 | (chunkSize     << 26)
-			 | (timing        << 28)
-			 | (irqNotify     << 30)
-			 | (enabled       << 31);
-	}
-
 } __attribute__((packed));
 static_assert(sizeof(dma_control) == sizeof(uint32_t));
 
@@ -234,8 +211,7 @@ struct pal_bank {
 	using storage = std::array<element, 0x100>;
 };
 
-struct interrupt_mask
-{
+struct interrupt_mask : public overlay<interrupt_mask, uint16_t> {
 	uint16_t vblank : 1;
 	uint16_t hblank : 1;
 	uint16_t vcount : 1;
@@ -251,48 +227,11 @@ struct interrupt_mask
 	uint16_t keypad : 1;
 	uint16_t gamePak : 1;
 	uint16_t _ : 2;
+} __attribute__((packed));
 
-	static constexpr interrupt_mask from_raw(uint16_t const mask)
-	{
-		return interrupt_mask
-			{ .vblank     = (uint16_t)((mask >>  0) & 0x1)
-			, .hblank     = (uint16_t)((mask >>  1) & 0x1)
-			, .vcount     = (uint16_t)((mask >>  2) & 0x1)
-			, .timer0     = (uint16_t)((mask >>  3) & 0x1)
-			, .timer1     = (uint16_t)((mask >>  4) & 0x1)
-			, .timer2     = (uint16_t)((mask >>  5) & 0x1)
-			, .timer3     = (uint16_t)((mask >>  6) & 0x1)
-			, .serialComm = (uint16_t)((mask >>  7) & 0x1)
-			, .dma0       = (uint16_t)((mask >>  8) & 0x1)
-			, .dma1       = (uint16_t)((mask >>  9) & 0x1)
-			, .dma2       = (uint16_t)((mask >> 10) & 0x1)
-			, .dma3       = (uint16_t)((mask >> 11) & 0x1)
-			, .keypad     = (uint16_t)((mask >> 12) & 0x1)
-			, .gamePak    = (uint16_t)((mask >> 13) & 0x1)
-		};
-	}
-
-	constexpr operator uint16_t() const {
-		return (vblank << 0)
-			 | (hblank << 1)
-			 | (vcount << 2)
-			 | (timer0 << 3)
-			 | (timer1 << 4)
-			 | (timer2 << 5)
-			 | (timer3 << 6)
-			 | (serialComm << 7)
-			 | (dma0 <<  8)
-			 | (dma1 <<  9)
-			 | (dma2 << 10)
-			 | (dma3 << 11)
-			 | (keypad << 12)
-			 | (gamePak << 13);
-	}
-
-	auto& operator= (uint16_t const raw) {
-		*this = from_raw(raw);
-		return *this;
-	}
+struct interrupt_master : public overlay<interrupt_master, uint32_t> {
+	uint32_t enabled : 1;
+	uint32_t _ : 31;
 } __attribute__((packed));
 
 } // namespace vram

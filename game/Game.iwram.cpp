@@ -12,6 +12,13 @@ static constexpr auto affineHblankDmaControl = vram::dma_control
 	, .enabled       = true
 };
 
+static constexpr auto vblankEnabledMask = vram::interrupt_mask
+	{ .vblank = 1
+};
+static constexpr auto interruptsEnabled = vram::interrupt_master
+	{ .enabled = 1
+};
+
 namespace irq
 {
 namespace iwram
@@ -23,9 +30,7 @@ vram::affine::param affineParams[161];
 IWRAM_CODE
 void isr()
 {
-	auto const irqsRaised = uint16_t{sys::irqsRaised};
-
-	if (auto const vblankMask = irqsRaised & vram::interrupt_mask{ .vblank = 1 }) {
+	if (auto const vblankMask = sys::irqsRaised & vblankEnabledMask) {
 		vblankCount++;
 
 		sys::dma3Control = stopDmaControl;
@@ -42,8 +47,8 @@ IWRAM_CODE
 void install()
 {
 	sys::irqServiceRoutine = isr;
-	sys::irqsEnabled = vram::interrupt_mask { .vblank = 1 };
-	sys::irqsEnabledFlag = 1;
+	sys::irqsEnabled = vblankEnabledMask;
+	sys::irqsEnabledFlag = interruptsEnabled;
 }
 
 } // namespace iwram

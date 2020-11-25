@@ -29,9 +29,21 @@ namespace m7
 }
 
 static constexpr auto
+sin(angle_fp alpha)
+{
+	return angle_fp{(float)::sin(alpha)};
+}
+
+static constexpr auto
+tan(angle_fp alpha)
+{
+	return angle_fp{(float)::tan(alpha)};
+}
+
+static constexpr auto
 safe_atan2(coord_fp y, coord_fp z)
 {
-	return angle_fp{::atan2(y, z)};
+	return angle_fp{(float)::atan2(y, z)};
 }
 
 static constexpr auto pi = angle_fp{safe_atan2(0,-1)};
@@ -59,7 +71,7 @@ point_distance(coord_fp dy, coord_fp dz)
 	auto const [du, dv] = (dz > dy) ? std::tie(dz, dy) : std::tie(dy, dz);
 
 	auto const angle = safe_atan2(du, dv);
-	auto const sin_angle = ::sin(angle);
+	auto const sin_angle = sin(angle);
 	if (sin_angle) {
 		return coord_fp{du / sin_angle};
 	}
@@ -77,7 +89,7 @@ viewangletoy(angle_fp alpha)
 {
 	if (alpha < 0)  { alpha = std::max(alpha, ytoviewangle(m7::B)); }
 	else if (alpha > 0) { alpha = std::min(alpha, ytoviewangle(m7::T)); }
-	auto const result = coord_fp{::tan(alpha) * m7::D};
+	auto const result = coord_fp{tan(alpha) * m7::D};
 	return std::clamp(result, m7::B, m7::T);
 }
 

@@ -62,11 +62,11 @@ public: // static members
 	static inline auto& dma3Source  = dma3.source;
 	static inline auto& dma3Control = dma3.control;
 
-	static inline auto biosIrqsRaised    = vram::interrupt_mask{};
+	static inline auto biosIrqsRaised    = vram::overlay<vram::interrupt_mask, uint16_t>{};
 	static inline auto irqServiceRoutine = (void(*)(void)){nullptr};
-	static inline auto irqsEnabled       = vram::interrupt_mask{};
-	static inline auto irqsRaised        = vram::interrupt_mask{};
-	static inline auto irqsEnabledFlag   = uint16_t{};
+	static inline auto irqsEnabled       = vram::overlay<vram::interrupt_mask, uint16_t>{};
+	static inline auto irqsRaised        = vram::overlay<vram::interrupt_mask, uint16_t>{};
+	static inline auto irqsEnabledFlag   = vram::overlay<vram::interrupt_master, uint32_t>{};
 
 	static inline auto palBank = vram::pal_bank::storage{};
 
@@ -228,10 +228,10 @@ void PC<DrawImpl>::runVblank()
 	constexpr auto vblankInterruptMask = vram::interrupt_mask{ .vblank = 1 };
 	if (irqsEnabledFlag) {
 		if (irqsEnabled & vblankInterruptMask) {
-			irqsRaised.vblank = 1;
+			irqsRaised->vblank = 1;
 			irqServiceRoutine();
-			biosIrqsRaised.vblank = 0;
-			irqsRaised.vblank = 0;
+			biosIrqsRaised->vblank = 0;
+			irqsRaised->vblank = 0;
 		}
 	}
 
