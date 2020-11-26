@@ -8,10 +8,10 @@ main
 #endif
 (int argc, char const* argv[])
 {
-	Game game{};
+	auto game = Game{};
 
 	while (true) {
-		dbgprintf(stdout, "%u\n", game.GetTime());
+		dbgprintf(stdout, "time: %u\n", game.GetTime());
 
 		game.Simulate();
 		game.Render();

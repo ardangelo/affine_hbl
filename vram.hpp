@@ -11,21 +11,25 @@ struct overlay {
 		return *(Base const*)this;
 	}
 
-	auto operator= (Base const& t) {
-		return *(Base*)this = t;
+	void operator= (Base const& t) {
+		*(Base*)this = t;
 	}
 
-	auto operator |= (Base const& t) {
-		return *(Base*)this |= t;
+	void operator|= (Base const& t) {
+		*(Base*)this |= t;
 	}
 
-	T operator& (Base const& t) const {
+	constexpr T operator& (Base const& t) const {
 		auto result = *(Base const*)this & t;
 		return *(T*)(&result);
 	}
 
-	T* operator -> () {
+	constexpr T* operator-> () {
 		return (T*)this;
+	}
+
+	constexpr T const* operator-> () const {
+		return (T const*)this;
 	}
 };
 

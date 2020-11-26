@@ -10,7 +10,7 @@ namespace iwram
 	volatile uint32_t vblankCount;
 
 	extern
-	vram::affine::param affineParams[161];
+	vram::affine::param affineParams[sys::screenHeight + 1];
 
 	IWRAM_CODE extern
 	void isr();

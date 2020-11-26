@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cmath>
 
 #include <array>
@@ -137,7 +138,17 @@ struct Sidedef
 	{}
 };
 
-// example map
+struct Node
+{
+	Vertex v1, v2;
+	Sector const* frontSector;
+	Sector const* backSector;
+	int frontNodeIdx;
+	int backNodeIdx;
+};
+
+struct ExampleMap
+{
 
 static constexpr auto sectors = std::array<Sector, 3>
 	{ Sector{0x001F // Blue / right of triangle
@@ -197,18 +208,11 @@ static constexpr auto linedefs = std::array<Linedef, 13>
 	, Linedef{vertices[4], vertices[6], &sidedefs[15], nullptr}
 };
 
-struct Node
-{
-	Vertex v1, v2;
-	Sector const* frontSector;
-	Sector const* backSector;
-	int frontNodeIdx;
-	int backNodeIdx;
-};
-
 static constexpr auto nodes = std::array<Node, 2>
 	{ Node{vertices[5], vertices[4], &sectors[0], nullptr, -1,  1}
 	, Node{vertices[6], vertices[5], &sectors[1], &sectors[2], -1, -1}
+};
+
 };
 
 static constexpr auto
@@ -222,55 +226,60 @@ on_right_side(coord_fp y, coord_fp z, coord_fp v1_y, coord_fp v1_z, coord_fp v2_
 	return right_side;
 }
 
-using SortedSectors = std::array<Sector const*, sectors.size()>;
-
+template <size_t NumNodes, size_t NumSectors>
 static constexpr size_t
 sort_sectors_from_cursor(coord_fp y, coord_fp z,
-	Node const& node, size_t cursor, SortedSectors& result)
+	std::array<Node, NumNodes> const& nodes, size_t node_cursor,
+	std::array<Sector const*, NumSectors>& result, size_t result_cursor)
 {
-	auto const on_front_side = bsp::on_right_side(y, z, node.v1.y, node.v1.z, node.v2.y, node.v2.z);
-	if (on_front_side) {
-		if (node.frontSector != nullptr) {
-			result[cursor++] = node.frontSector;
+	while (result_cursor < NumSectors) {
+		auto const& node = nodes[node_cursor];
+		auto const on_front_side = bsp::on_right_side(y, z, node.v1.y, node.v1.z, node.v2.y, node.v2.z);
+		if (on_front_side) {
+			if (node.frontSector != nullptr) {
+				result[result_cursor++] = node.frontSector;
+			} else {
+				result_cursor = sort_sectors_from_cursor(y, z,
+					nodes, node.frontNodeIdx, result, result_cursor);
+			}
+			if (node.backSector != nullptr) {
+				result[result_cursor++] = node.backSector;
+			} else {
+				result_cursor = sort_sectors_from_cursor(y, z,
+					nodes, node.backNodeIdx, result, result_cursor);
+			}
 		} else {
-			cursor = sort_sectors_from_cursor(y, z,
-				nodes[node.frontNodeIdx], cursor, result);
-		}
-		if (node.backSector != nullptr) {
-			result[cursor++] = node.backSector;
-		} else {
-			cursor = sort_sectors_from_cursor(y, z,
-				nodes[node.backNodeIdx], cursor, result);
-		}
-	} else {
-		if (node.backSector != nullptr) {
-			result[cursor++] = node.backSector;
-		} else {
-			cursor = sort_sectors_from_cursor(y, z,
-				nodes[node.backNodeIdx], cursor, result);
-		}
-		if (node.frontSector != nullptr) {
-			result[cursor++] = node.frontSector;
-		} else {
-			cursor = sort_sectors_from_cursor(y, z,
-				nodes[node.frontNodeIdx], cursor, result);
+			if (node.backSector != nullptr) {
+				result[result_cursor++] = node.backSector;
+			} else {
+				result_cursor = sort_sectors_from_cursor(y, z,
+					nodes, node.backNodeIdx, result, result_cursor);
+			}
+			if (node.frontSector != nullptr) {
+				result[result_cursor++] = node.frontSector;
+			} else {
+				result_cursor = sort_sectors_from_cursor(y, z,
+					nodes, node.frontNodeIdx, result, result_cursor);
+			}
 		}
 	}
-	return cursor;
+	return result_cursor;
 }
 
+template <typename Map>
 static constexpr auto
 sort_sectors_from(coord_fp y, coord_fp z)
 {
-	SortedSectors result = {};
-	sort_sectors_from_cursor(y, z, nodes[0], 0, result);
+	std::array<Sector const*, Map::sectors.size()> result = {};
+	sort_sectors_from_cursor(y, z, Map::nodes, 0, result, 0);
 	return result;
 }
 
+template <typename Map>
 static constexpr auto
 sector_for(coord_fp y, coord_fp z)
 {
-	return *sort_sectors_from(y, z)[0];
+	return *sort_sectors_from<Map>(y, z)[0];
 }
 
 static constexpr auto
@@ -281,60 +290,246 @@ viewangle_for(coord_fp a_y, coord_fp a_z, angle_fp phi, coord_fp y, coord_fp z)
 	return angle;
 }
 
-template <size_t N>
-struct Renderer
+struct Range
 {
-using Range = std::pair<h_fp, h_fp>;
-
-static constexpr auto h_min = std::numeric_limits<h_fp>::min();
-static constexpr auto h_max = std::numeric_limits<h_fp>::max();
-static constexpr auto emptyOcclusion = Range{h_min, -1};
-static constexpr auto fullOcclusion  = Range{h_min, h_max};
-
-std::array<Range, N> m_occlusions = emptyOcclusion;
+	h_fp top, bottom;
+	bool operator==(Range const& rhs) const
+	{
+		return (top == rhs.top) && (bottom == rhs.bottom);
+	}
+};
 
 struct Drawseg
 {
-scale_fp sc1, dsc;
-coord_fp tx1, dtx;
-Linedef const* seg;
+	scale_fp sc1, dsc;
+	coord_fp tx1, dtx;
+	Linedef const* seg;
 };
-
-std::array<Drawseg, N> m_drawsegs;
-size_t m_next_drawseg = 0;
 
 struct Drawrange
 {
-Range range;
-Drawseg const* drawseg;
+	Range range;
+	Drawseg const* drawseg;
 };
-std::array<Drawrange, N> m_drawranges;
-size_t m_next_drawrange = 0;
 
-constexpr bool fullyOccluded() const
+template <int screenHeight>
+struct Renderer
 {
-	return m_occlusions[0] == fullOcclusion;
-}
+public: // static members
+	static constexpr auto h_min = std::numeric_limits<h_fp>::min();
+	static constexpr auto h_max = std::numeric_limits<h_fp>::max();
+	static constexpr auto fullOcclusion  = Range{h_min, h_max};
 
-constexpr bool rangeVisible(h_fp h1, h_fp h2) const
-{
-// read occlusions
-	return false;
-}
+public: // members
+	std::array<Range, screenHeight> m_occlusions;
+	size_t m_next_occlusion = 0;
 
-constexpr auto calculateDrawseg(Linedef const* seg) const
-{
-// run drawseg calculations
-}
+	std::array<Drawseg, screenHeight> m_drawsegs;
+	size_t m_next_drawseg = 0;
 
-constexpr void occludeDrawseg(h_fp h1, h_fp h2, Drawseg const* drawseg)
-{
-// update occlusions
-// for each hole, add new drawrange
-}
+	std::array<Drawrange, screenHeight> m_drawranges;
+	size_t m_next_drawrange = 0;
 
-constexpr auto drawranges_begin() const { return m_drawranges.begin(); }
-constexpr auto drawranges_end()   const { return m_drawranges.begin() + m_next_drawrange + 1; }
+public: // interface
+
+	constexpr Renderer()
+	{
+		m_occlusions[0] = Range{h_min, -1};
+		m_occlusions[1] = Range{screenHeight, h_max};
+		m_next_occlusion = 2;
+	}
+
+	constexpr bool fullyOccluded() const
+	{
+		return m_occlusions[0] == fullOcclusion;
+	}
+
+	constexpr bool rangeVisible(h_fp h1, h_fp h2) const
+	{
+		if (h1 == h2) { return false; }
+
+		for (size_t i = 0; i < m_next_occlusion - 1; i++) {
+			if ((h1 < m_occlusions[i + 1].top)
+			 || (h2 > m_occlusions[i].bottom)) {
+			 	return true;
+			}
+		}
+
+		return false;
+	}
+
+	constexpr auto calculateDrawseg(Linedef const* seg) const
+	{
+		return Drawseg
+			{ .sc1 = {}
+			, .dsc = {}
+			, .tx1 = {}
+			, .dtx = {}
+			, .seg = seg
+		};
+	}
+
+	template <typename T, size_t N>
+	static void array_insert(std::array<T, N>& arr, size_t& cursor, size_t idx, T const& elem)
+	{
+		cursor++;
+		for (auto i = cursor; i > idx; i--) {
+			arr[i] = arr[i - 1];
+		}
+		arr[idx] = elem;
+	}
+
+	template <typename T, size_t N>
+	static auto array_pop(std::array<T, N>& arr, size_t& cursor, size_t idx)
+	{
+		auto const result = arr[idx];
+		cursor--;
+		for (auto i = idx; i < cursor; i++) {
+			arr[i] = arr[i + 1];
+		}
+		return result;
+	}
+
+	template <typename T, size_t N>
+	static void array_append(std::array<T, N>& arr, size_t& cursor, T const& elem)
+	{
+		arr[cursor++] = elem;
+	}
+
+	template <typename T, size_t N>
+	static auto& array_last(std::array<T, N>& arr, size_t const& cursor)
+	{
+		return arr[cursor - 1];
+	}
+
+	constexpr void occludeDrawseg(h_fp h1, h_fp h2, Drawseg const* drawseg)
+	{
+		auto printOD = [this]() {
+			fprintf(stderr, "drawranges: ");
+			for (size_t i = 0; i < m_next_drawrange; i++) {
+				fprintf(stderr, "(%d, %d, %p) ", m_drawranges[i].range.top, m_drawranges[i].range.bottom, m_drawranges[i].drawseg);
+			}
+			fprintf(stderr, "\n");
+			fprintf(stderr, "occlusions: ");
+			for (size_t i = 0; i < m_next_occlusion; i++) {
+				auto const [h1, h2] = m_occlusions[i];
+				fprintf(stderr, "(%d, %d) ", h1, h2);
+			}
+			fprintf(stderr, "\n");
+		};
+
+		printOD();
+		fprintf(stderr, "occlude %d, %d\n", h1, h2);
+		// 0 [T1 h1<=B1+ T2<=h2 B2] 160
+		// 0 [T1 B1+]__[<h1 h2<]__[T2 B2] 160
+		// 0 [T1 h1<=B1+ h2<]__[T2 B2] 160
+		// 0 [T1 B1+]__[<h1 T2<=h2 B2] 160
+		for (size_t i = 0; i < m_next_occlusion - 1; ) {
+			auto const b1 = m_occlusions[i].bottom;
+			auto const t2 = m_occlusions[i + 1].top;
+
+			auto const h1_past_b1 = h1 <= b1 + 1;
+			auto const h2_past_t2 = t2 <= h2;
+			auto const h1_in_gap  = (b1 + 1 < h1) && (h1 < t2);
+			auto const h2_in_gap  = (b1 + 1 < h2) && (h2 < t2);
+
+			fprintf(stderr, "b1: %d, t2: %d: ", b1, t2);
+
+			// Big. Remove gap
+			if (h1_past_b1 && h2_past_t2) {
+				fprintf(stderr, "big\n");
+				m_occlusions[i].bottom = m_occlusions[i + 1].bottom;
+				array_pop(m_occlusions, m_next_occlusion, i + 1);
+				array_append(m_drawranges, m_next_drawrange, Drawrange
+					{ .range = Range{b1 + 1, t2}
+					, .drawseg = drawseg
+				});
+				continue;
+
+			// Small. Insert new
+			} else if (h1_in_gap && h2_in_gap) {
+				fprintf(stderr, "small\n");
+				array_insert(m_occlusions, m_next_occlusion, i + 1, {h1, h2});
+				array_append(m_drawranges, m_next_drawrange, Drawrange
+					{ .range = Range{h1 + 1, h2}
+					, .drawseg = drawseg
+				});
+				break;
+
+			// h2 in gap, h1 over b1. Extend b1 down to h2
+			} else if (h1_past_b1 && h2_in_gap) {
+				fprintf(stderr, "h2 in gap\n");
+				m_occlusions[i].bottom = h2;
+				array_append(m_drawranges, m_next_drawrange, Drawrange
+					{ .range = Range{b1 + 1, h2}
+					, .drawseg = drawseg
+				});
+				break;
+
+			// h1 in gap, h2 over t2. Extend t2 up to h1
+			} else if (h1_in_gap && h2_past_t2) {
+				fprintf(stderr, "h1 in gap\n");
+				m_occlusions[i + 1].top = h1;
+				array_append(m_drawranges, m_next_drawrange, Drawrange
+					{ .range = Range{h1 + 1, t2}
+					, .drawseg = drawseg
+				});
+				break;
+			} else {
+				fprintf(stderr, "none\n");
+			}
+
+			i++;
+		}
+
+		fprintf(stderr, "completed\n");
+		printOD();
+		fprintf(stderr, "\n");
+	}
+
+	template <typename Map, size_t NumSectors>
+	constexpr auto&
+	calculateDrawranges(coord_fp a_y, coord_fp a_z, angle_fp phi,
+		std::array<Sector const*, NumSectors> const& sortedSectors)
+	{
+		for (auto&& sectorPtr : sortedSectors) {
+			for (auto const segId : sectorPtr->segIds) {
+				if (segId < 0) { break; }
+				auto const segPtr = &Map::linedefs[segId];
+
+				if (segPtr->front && segPtr->back) { continue; }
+				auto const angle_1 = bsp::viewangle_for(a_y, a_z, phi,
+					segPtr->v1.y, segPtr->v1.z);
+				auto const angle_2 = bsp::viewangle_for(a_y, a_z, phi,
+					segPtr->v2.y, segPtr->v2.z);
+				if (angle_2 > angle_1) { continue; }
+				if ((abs(angle_1) >= bsp::pi / 2)
+				 && (abs(angle_2) >= bsp::pi / 2)) { continue; }
+
+				auto const y_1 = bsp::viewangletoy(angle_1);
+				auto const y_2 = bsp::viewangletoy(angle_2);
+
+				auto const h_1 = int(y_2 + 80);
+				auto const h_2 = int(y_1 + 80);
+
+				if (rangeVisible(h_1, h_2)) {
+					auto drawseg = calculateDrawseg(segPtr);
+					array_append(m_drawsegs, m_next_drawseg, drawseg);
+					auto const drawsegPtr = &array_last(m_drawsegs, m_next_drawseg);
+					occludeDrawseg(h_1, h_2, drawsegPtr);
+				}
+
+				if (fullyOccluded()) {
+					return m_drawranges;
+				}
+			}
+		}
+
+		assert(false);
+	}
+
+	constexpr auto begin() const { return m_drawranges.begin(); }
+	constexpr auto end()   const { return m_drawranges.begin() + m_next_drawrange; }
 };
 
 } // namespace bsp

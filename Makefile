@@ -13,8 +13,9 @@ ifneq (,$(wildcard $(DEVKITARM)/gba_rules))
 endif
 
 # Set SDL package location for macOS / Windows
-PACKAGES = /opt/local/
+#PACKAGES = /opt/local
 #PACKAGES = /mingw64
+PACKAGES = /usr
 
 # Detect SDL support, add SDL target
 ifneq (,$(wildcard $(PACKAGES)/bin/sdl2-config))
