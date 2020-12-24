@@ -5,17 +5,12 @@
 
 #include "BSP.hpp"
 
-namespace
-{
-	using coord_fp = math::fixed_point<4, uint32_t>;
-}
-
 class World
 {
 public: // types
 	struct Cmd
 	{
-		coord_fp da_x, da_y;
+		bsp::coord_fp da_x, da_y;
 	};
 
 	enum class Mode : uint32_t
@@ -26,12 +21,15 @@ public: // types
 	struct Camera
 	{
 	public: // members
-		coord_fp a_x, a_y;
+		bsp::coord_fp a_x, a_y, a_z;
+		bsp::angle_fp theta;
 
 	public: // interface
 		constexpr Camera()
 			: a_x{0}
 			, a_y{0}
+			, a_z{0}
+			, theta{3.04159}
 		{}
 
 		void Think(Cmd const& cmd);

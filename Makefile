@@ -59,7 +59,7 @@ BMP_LDFLAGS  =
 # Game sources
 
 SYS_HEADERS  = register.hpp vram.hpp event.hpp
-GAME_HEADERS = game/Game.hpp game/World.hpp game/Menu.hpp game/resources.hpp game/BSP.hpp
+GAME_HEADERS = game/Game.hpp game/World.hpp game/Menu.hpp game/resources.hpp game/BSP.hpp game/Minimap.hpp
 
 GBA_HEADERS = $(SYS_HEADERS) $(GAME_HEADERS) system/GBA.hpp
 SDL_HEADERS = $(SYS_HEADERS) $(GAME_HEADERS) system/PC.hpp system/SDL.hpp

@@ -109,7 +109,6 @@ public:
 
 } // namespace reg
 
-
 template <typename Applier, typename Value>
 struct io_val
 {

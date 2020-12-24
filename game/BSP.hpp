@@ -36,6 +36,12 @@ sin(angle_fp alpha)
 }
 
 static constexpr auto
+cos(angle_fp alpha)
+{
+	return angle_fp{(float)::cos(alpha)};
+}
+
+static constexpr auto
 tan(angle_fp alpha)
 {
 	return angle_fp{(float)::tan(alpha)};
@@ -101,12 +107,20 @@ struct Vertex
 
 struct Sidedef;
 
+static constexpr auto
+calculateSlopeAngle(Vertex const& v1, Vertex const& v2)
+{
+	return angle_fp{recenter(safe_atan2(v2.y - v1.y, v2.z - v1.z))};
+}
+
 struct Linedef
 {
 	using id = ssize_t;
 
 	Vertex const& v1;
 	Vertex const& v2;
+	angle_fp const slope;
+
 	Sidedef const* front;
 	Sidedef const* back;
 
@@ -114,6 +128,8 @@ struct Linedef
 		Sidedef const* front_, Sidedef const* back_)
 		: v1{v1_}
 		, v2{v2_}
+		, slope{calculateSlopeAngle(v1, v2)}
+
 		, front{front_}
 		, back{back_}
 	{}
@@ -218,12 +234,16 @@ static constexpr auto nodes = std::array<Node, 2>
 static constexpr auto
 on_right_side(coord_fp y, coord_fp z, coord_fp v1_y, coord_fp v1_z, coord_fp v2_y, coord_fp v2_z)
 {
-	auto const t1 = y - v1_y;
-	auto const t2 = z - v1_z;
-	auto const d1 = y - v2_y;
-	auto const d2 = z - v2_z;
-	auto const right_side = (d1 * t2 - d2 * t1) < 0;
-	return right_side;
+	auto const d_y = y - v2_y;
+	auto const d_z = z - v2_z;
+	auto const t_y = y - v1_y;
+	auto const t_z = z - v1_z;
+
+	// <0, v1_y, v1_z> x <0, v2_y, v2_z> = <x, 0, 0>
+	// x-component of this cross-product
+	auto const cross_product_x = coord_fp{d_y * d_z} - coord_fp{t_y * t_z};
+
+	return cross_product_x < 0;
 }
 
 template <size_t NumNodes, size_t NumSectors>
@@ -283,9 +303,9 @@ sector_for(coord_fp y, coord_fp z)
 }
 
 static constexpr auto
-viewangle_for(coord_fp a_y, coord_fp a_z, angle_fp phi, coord_fp y, coord_fp z)
+viewangle_for(coord_fp a_y, coord_fp a_z, angle_fp theta, coord_fp y, coord_fp z)
 {
-	auto const angle = recenter(safe_atan2(y - a_y, z - a_z) - phi);
+	auto const angle = recenter(safe_atan2(y - a_y, z - a_z) - theta);
 
 	return angle;
 }
@@ -301,9 +321,9 @@ struct Range
 
 struct Drawseg
 {
-	scale_fp sc1, dsc;
-	coord_fp tx1, dtx;
-	Linedef const* seg;
+	scale_fp lam_1, lam_2;
+	coord_fp tx_1, tx_2;
+	Linedef const* linedef;
 };
 
 struct Drawrange
@@ -358,14 +378,39 @@ public: // interface
 		return false;
 	}
 
-	constexpr auto calculateDrawseg(Linedef const* seg) const
+	constexpr auto calculateDrawseg(coord_fp a_y, coord_fp a_z, screen_fp h_1, screen_fp h_2, angle_fp theta, Linedef const* linedef) const
 	{
+		auto const v1_cam_dist = point_distance(linedef->v1.y - a_y, linedef->v1.z - a_z);
+
+#if 0
+		// One-sided linedef has right side
+		// Normal should originate from right side
+		// Slope is from v1 to v2, subtract pi / 2 (not add)
+		auto const normal_angle = recenter(linedef->slope - pi / 2);
+
+		auto const v1_cam_world_angle = recenter(safe_atan2(linedef->v1.y - a_y, linedef->v1.z - a_z));
+		auto const v2_cam_world_angle = recenter(safe_atan2(linedef->v2.y - a_y, linedef->v2.z - a_z));
+
+		auto const linedef_v1_world_angle = v1_cam_world_angle - linedef->slope;
+
+		auto const normal_dist = coord_fp{sin(linedef_v1_world_angle) * v1_cam_dist};
+
+		fprintf(stderr, "v1_cam_world_angle: %.2f normal dist %.2f -> %d\n", float{v1_cam_world_angle}, float{normal_dist});
+#else
+		auto const lam_1 = v1_cam_dist / m7::D;
+
+		auto const v2_cam_dist = point_distance(linedef->v2.y - a_y, linedef->v2.z - a_z);
+		auto const lam_2 = v2_cam_dist / m7::D;
+
+		fprintf(stderr, "lam_1: %.02f lam_2: %.02f\n", lam_1, lam_2);
+#endif
+
 		return Drawseg
-			{ .sc1 = {}
-			, .dsc = {}
-			, .tx1 = {}
-			, .dtx = {}
-			, .seg = seg
+			{ .lam_1 = lam_1
+			, .lam_2 = lam_2
+			, .tx_1 = {}
+			, .tx_2 = {}
+			, .linedef = linedef
 		};
 	}
 
@@ -488,8 +533,8 @@ public: // interface
 	}
 
 	template <typename Map, size_t NumSectors>
-	constexpr auto&
-	calculateDrawranges(coord_fp a_y, coord_fp a_z, angle_fp phi,
+	constexpr void
+	calculateDrawranges(coord_fp a_y, coord_fp a_z, angle_fp theta,
 		std::array<Sector const*, NumSectors> const& sortedSectors)
 	{
 		for (auto&& sectorPtr : sortedSectors) {
@@ -498,9 +543,9 @@ public: // interface
 				auto const segPtr = &Map::linedefs[segId];
 
 				if (segPtr->front && segPtr->back) { continue; }
-				auto const angle_1 = bsp::viewangle_for(a_y, a_z, phi,
+				auto const angle_1 = bsp::viewangle_for(a_y, a_z, theta,
 					segPtr->v1.y, segPtr->v1.z);
-				auto const angle_2 = bsp::viewangle_for(a_y, a_z, phi,
+				auto const angle_2 = bsp::viewangle_for(a_y, a_z, theta,
 					segPtr->v2.y, segPtr->v2.z);
 				if (angle_2 > angle_1) { continue; }
 				if ((abs(angle_1) >= bsp::pi / 2)
@@ -513,14 +558,14 @@ public: // interface
 				auto const h_2 = int(y_1 + 80);
 
 				if (rangeVisible(h_1, h_2)) {
-					auto drawseg = calculateDrawseg(segPtr);
+					auto drawseg = calculateDrawseg(a_y, a_z, theta, h_1, h_2, segPtr);
 					array_append(m_drawsegs, m_next_drawseg, drawseg);
 					auto const drawsegPtr = &array_last(m_drawsegs, m_next_drawseg);
 					occludeDrawseg(h_1, h_2, drawsegPtr);
 				}
 
 				if (fullyOccluded()) {
-					return m_drawranges;
+					return;
 				}
 			}
 		}

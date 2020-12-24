@@ -6,6 +6,9 @@
 #include "vram.hpp"
 #include "event.hpp"
 
+#include "game/BSP.hpp"
+#include "game/Minimap.hpp"
+
 template <typename DrawImpl_>
 class PC
 {
@@ -62,11 +65,11 @@ public: // static members
 	static inline auto& dma3Source  = dma3.source;
 	static inline auto& dma3Control = dma3.control;
 
-	static inline auto biosIrqsRaised    = vram::overlay<vram::interrupt_mask, uint16_t>{};
+	static inline auto biosIrqsRaised    = vram::interrupt_mask{};
 	static inline auto irqServiceRoutine = (void(*)(void)){nullptr};
-	static inline auto irqsEnabled       = vram::overlay<vram::interrupt_mask, uint16_t>{};
-	static inline auto irqsRaised        = vram::overlay<vram::interrupt_mask, uint16_t>{};
-	static inline auto irqsEnabledFlag   = vram::overlay<vram::interrupt_master, uint32_t>{};
+	static inline auto irqsEnabled       = vram::interrupt_mask{};
+	static inline auto irqsRaised        = vram::interrupt_mask{};
+	static inline auto irqsEnabledFlag   = vram::interrupt_master{};
 
 	static inline auto palBank = vram::pal_bank::storage{};
 

@@ -25,7 +25,8 @@ public: // types
 			{ SDL_Renderer *rawRenderer = nullptr;
 			  SDL_Window   *rawWindow   = nullptr;
 
-				SDL_CreateWindowAndRenderer(PC::screenWidth, PC::screenHeight, 0, &rawWindow, &rawRenderer);
+				SDL_CreateWindowAndRenderer(PC::screenWidth + 400, PC::screenHeight + 400, 0, &rawWindow, &rawRenderer);
+				assert(rawRenderer != nullptr);
 				renderer = unique_SDL_Renderer{rawRenderer, SDL_DestroyRenderer};
 				window   = unique_SDL_Window{rawWindow, SDL_DestroyWindow};
 			}
@@ -58,7 +59,7 @@ public: // DrawImpl interface
 		if (event.type == SDL_QUIT) {
 			exit(0);
 		}
-
+/*
 		queue.push_back(event::Key
 			{ .type  = event::Key::Type::Right
 			, .state = event::Key::State::On
@@ -67,6 +68,7 @@ public: // DrawImpl interface
 			{ .type  = event::Key::Type::Down
 			, .state = event::Key::State::On
 		});
+*/
 	}
 
 	static void drawPx(int colPx, int rowPx, int r, int g, int b)

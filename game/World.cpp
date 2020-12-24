@@ -17,7 +17,7 @@ void World::Camera::Tick(Cmd const& cmd)
 
 World::Cmd World::BuildCmd() const
 {
-	auto constexpr speed = coord_fp{0x1};
+	auto constexpr speed = bsp::coord_fp{0x1};
 
 	auto cmd = Cmd{};
 
